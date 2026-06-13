@@ -1,0 +1,32 @@
+{
+  "_comment": "Copy this to config.json to customize the search. With Docker, put config.json in the jobfinder-data volume, or set JOBFINDER_CONFIG to its path. Every key is optional; omitted keys use the defaults shown here (entry-level Data/AI roles hiring in India).",
+
+  "roles": [
+    {
+      "key": "data-engineer",
+      "label": "Data Engineer",
+      "title_keywords": ["data engineer", "data platform engineer", "analytics engineer", "etl developer", "data pipeline"],
+      "search_terms": ["data engineer"]
+    },
+    {
+      "key": "ai-engineer",
+      "label": "AI / LLM / GenAI",
+      "title_keywords": ["ai engineer", "artificial intelligence engineer", "llm", "generative ai", "gen ai", "genai", "machine learning engineer", "ml engineer", "mlops engineer", "prompt engineer", "ai/ml engineer", "nlp engineer"],
+      "search_terms": ["ai engineer OR llm OR generative ai", "machine learning engineer"]
+    }
+  ],
+
+  "exclude_title_keywords": ["senior", "sr.", "staff", "principal", "lead", "head", "director", "manager", "vp", "chief", "architect", "iii", "iv", "consultant", "recruiter", "sales", "marketing"],
+
+  "comfortable_years": 1,
+  "max_experience_years": 3,
+
+  "onsite_cities": ["Bangalore", "Bengaluru", "Hyderabad", "Pune"],
+
+  "require_local_eligibility": true,
+  "country": "India",
+  "home_terms": ["india", "bengaluru", "bangalore", "hyderabad", "pune", "mumbai", "delhi", "chennai", "apac", "asia"],
+  "global_terms": ["worldwide", "anywhere", "global", "international", "100% remote"],
+
+  "max_age_days": 7
+}

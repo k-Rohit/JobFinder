@@ -1,0 +1,20 @@
+services:
+  jobfinder:
+    build: .
+    image: jobfinder:latest
+    container_name: jobfinder
+    ports:
+      - "8787:8787"
+    volumes:
+      # Persist the jobs database and uploaded resume across restarts
+      - jobfinder-data:/data
+    environment:
+      # Optional: set these to enable resume tailoring / Indeed+Naukri fetching.
+      # Leave unset to configure them from the dashboard ⚙️ Settings instead.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - JSEARCH_API_KEY=${JSEARCH_API_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  jobfinder-data:
