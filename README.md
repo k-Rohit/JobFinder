@@ -9,6 +9,27 @@ Out of the box it's tuned for **entry-level Data Engineer & AI/LLM/GenAI roles
 hiring in India**, but everything is customizable in one config file — see
 [Customizing your search](#customizing-your-search).
 
+![JobFinder dashboard](docs/screenshot.png)
+
+## Quick start
+
+You only need [Docker](https://docs.docker.com/get-docker/) installed.
+
+```sh
+git clone https://github.com/k-Rohit/JobFinder.git
+cd JobFinder
+docker compose up -d --build
+```
+
+Open **http://localhost:8787** — the first batch of jobs appears within a
+minute. That's it. Optionally:
+
+- **Tailor your resume to a job** → open ⚙️ Settings, upload your resume and
+  paste an OpenAI API key, then click "✨ Tailor resume" on any job.
+- **Pull Indeed + Naukri results** → add a free JSearch (RapidAPI) key in ⚙️ Settings.
+- **Search different roles / country / cities** → see
+  [Customizing your search](#customizing-your-search).
+
 ## Start the portal
 
 ### Option A — Docker (recommended)
