@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+jobs.db
+data/
+.git/
+.gitignore
+*.md
+com.jobfinder.portal.plist
+run.sh
+.DS_Store
+/tmp/

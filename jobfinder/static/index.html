@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobFinder — Data &amp; AI Engineer Jobs</title>
+<style>
+  :root {
+    --bg: #0b0e14; --bg2: #11151f; --panel: #151b27; --panel2: #1a2231;
+    --border: #232c3d; --border2: #2e3a52;
+    --text: #e8edf6; --muted: #94a3b8; --faint: #64748b;
+    --accent: #60a5fa; --accent2: #818cf8; --green: #34d399; --amber: #fbbf24;
+    --purple: #c084fc; --pink: #f472b6; --red: #f87171;
+    --grad: linear-gradient(135deg, #60a5fa, #c084fc);
+    --shadow: 0 4px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    background:
+      radial-gradient(1100px 500px at 80% -10%, rgba(96,165,250,.10), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(192,132,252,.08), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 400 1rem/1.6 -apple-system, "SF Pro Text", "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 36px 20px 100px; }
+
+  /* ---------- header ---------- */
+  header.top { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  .brand h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.5px; }
+  .brand h1 .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand .sub { color: var(--muted); font-size: .95rem; margin-top: 2px; }
+  .last-refresh { color: var(--faint); font-size: .85rem; margin-top: 6px; }
+
+  button { cursor: pointer; border: 1px solid var(--border2); background: var(--panel); color: var(--text); border-radius: 10px; padding: 10px 18px; font-size: .95rem; font-weight: 500; transition: all .15s; }
+  button:hover { border-color: var(--accent); transform: translateY(-1px); }
+  button.primary { background: var(--grad); border: none; color: #0b0e14; font-weight: 700; box-shadow: 0 4px 18px rgba(96,165,250,.35); }
+  button.primary:hover { filter: brightness(1.1); }
+  button.primary:disabled { opacity: .6; cursor: wait; transform: none; }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 26px; }
+  .stat { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .stat .num { font-size: 2rem; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
+  .stat .lbl { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .stat.s0 .num { color: var(--accent); } .stat.s1 .num { color: var(--green); }
+  .stat.s2 .num { color: var(--accent2); } .stat.s3 .num { color: var(--purple); }
+  .stat.s4 .num { color: var(--amber); } .stat.s5 .num { color: var(--pink); }
+
+  /* ---------- panels ---------- */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 22px; box-shadow: var(--shadow); }
+  details.panel summary { padding: 16px 20px; cursor: pointer; font-weight: 650; font-size: 1rem; list-style: none; display: flex; align-items: center; gap: 10px; }
+  details.panel summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
+  details.panel[open] summary::before { transform: rotate(90deg); }
+  details.panel .body { padding: 4px 20px 18px; }
+
+  .quick a { display: inline-block; margin: 8px 8px 0 0; color: var(--accent); text-decoration: none; font-size: .9rem; border: 1px solid var(--border2); border-radius: 999px; padding: 6px 16px; transition: all .15s; background: var(--bg2); }
+  .quick a:hover { border-color: var(--accent); background: rgba(96,165,250,.1); transform: translateY(-1px); }
+
+  .settings .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .settings label { min-width: 150px; font-weight: 550; font-size: .95rem; }
+  .settings input[type=password], .settings input[type=file] { flex: 1; min-width: 240px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 9px 14px; color: var(--text); font-size: .9rem; }
+  .hint { color: var(--muted); font-size: .85rem; }
+  .ok { color: var(--green); } .warn { color: var(--amber); }
+
+  /* ---------- filters ---------- */
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tab { padding: 9px 22px; border-radius: 999px; border: 1px solid var(--border2); background: var(--panel); color: var(--muted); font-size: .95rem; font-weight: 600; }
+  .tab.active { background: var(--grad); border-color: transparent; color: #0b0e14; box-shadow: 0 4px 14px rgba(96,165,250,.3); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; align-items: center; }
+  .controls input[type=search] { flex: 1; min-width: 220px; background: var(--panel); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 16px; color: var(--text); font-size: .95rem; }
+  .controls input[type=search]:focus, select:focus { outline: none; border-color: var(--accent); }
+  select { background: var(--panel); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 12px; color: var(--text); font-size: .9rem; }
+
+  .count-line { color: var(--faint); font-size: .85rem; margin-bottom: 14px; }
+
+  /* ---------- job cards ---------- */
+  .job { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 16px; box-shadow: var(--shadow); transition: all .18s; position: relative; }
+  .job:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 10px 32px rgba(0,0,0,.45); }
+  .job.applied { border-left: 4px solid var(--green); }
+  .job.saved { border-left: 4px solid var(--amber); }
+  .job-top { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .job h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.3px; line-height: 1.35; }
+  .job h3 a { color: var(--text); text-decoration: none; }
+  .job h3 a:hover { color: var(--accent); }
+  .company { color: var(--accent); font-weight: 650; font-size: 1rem; }
+  .meta { color: var(--muted); font-size: .88rem; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .fit { font-weight: 800; }
+  .badges { display: flex; gap: 7px; align-items: flex-start; flex-wrap: wrap; }
+  .badge { font-size: .78rem; font-weight: 650; padding: 4px 12px; border-radius: 999px; white-space: nowrap; }
+  .b-role-data { background: rgba(96,165,250,.16); color: var(--accent); }
+  .b-role-ai { background: rgba(192,132,252,.16); color: var(--purple); }
+  .b-role-3 { background: rgba(52,211,153,.16); color: var(--green); }
+  .b-role-4 { background: rgba(251,191,36,.16); color: var(--amber); }
+  .b-role-5 { background: rgba(244,114,182,.16); color: var(--pink); }
+  .b-entry { background: rgba(52,211,153,.16); color: var(--green); }
+  .b-junior { background: rgba(251,191,36,.16); color: var(--amber); }
+  .b-unspecified { background: rgba(148,163,184,.14); color: var(--muted); }
+  .b-stretch { background: rgba(244,114,182,.14); color: var(--pink); }
+  .b-hybrid { background: rgba(248,113,113,.15); color: var(--red); }
+  .b-remote { background: rgba(52,211,153,.12); color: var(--green); }
+  .b-onsite { background: rgba(251,191,36,.14); color: var(--amber); }
+  .b-india { background: rgba(96,165,250,.14); color: var(--accent); }
+  .b-src { background: var(--bg2); color: var(--faint); border: 1px solid var(--border); }
+
+  .skills { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 7px; }
+  .skill { font-size: .8rem; font-weight: 550; background: var(--bg2); border: 1px solid var(--border2); color: #c7d2e8; padding: 4px 12px; border-radius: 8px; }
+  .desc { color: var(--muted); font-size: .92rem; margin-top: 12px; max-height: 66px; overflow: hidden; line-height: 1.55;
+          mask-image: linear-gradient(180deg, #000 50%, transparent); -webkit-mask-image: linear-gradient(180deg, #000 50%, transparent); }
+  .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .actions a.apply { background: linear-gradient(135deg, #34d399, #10b981); color: #052e21; border-radius: 10px; padding: 9px 22px; font-size: .95rem; text-decoration: none; font-weight: 750; box-shadow: 0 4px 14px rgba(52,211,153,.25); transition: all .15s; }
+  .actions a.apply:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .actions button { font-size: .85rem; padding: 8px 16px; border-radius: 10px; }
+  .actions button.on { border-color: var(--green); color: var(--green); background: rgba(52,211,153,.08); }
+  .actions button.tailor-btn { border-color: rgba(192,132,252,.5); color: var(--purple); }
+  .actions button.tailor-btn:hover { background: rgba(192,132,252,.1); }
+
+  .empty { text-align: center; color: var(--muted); padding: 80px 0; font-size: 1.05rem; }
+  .empty .big { font-size: 2.4rem; margin-bottom: 10px; }
+
+  /* ---------- modal ---------- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(4,6,10,.75); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 10; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border2); border-radius: 18px; width: min(860px, 94vw); max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,.6); }
+  .modal header { padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .modal header h3 { font-size: 1.1rem; }
+  .modal .m-body { padding: 18px 24px; overflow-y: auto; font-size: .95rem; }
+  .modal .m-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
+  .modal pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; white-space: pre-wrap; font-size: .85rem; max-height: 340px; overflow-y: auto; line-height: 1.55; }
+  .kw { display: inline-block; font-size: .8rem; font-weight: 600; background: rgba(96,165,250,.14); color: var(--accent); border-radius: 8px; padding: 3px 11px; margin: 3px 5px 3px 0; }
+  .changes li { color: var(--muted); font-size: .88rem; margin-left: 20px; margin-top: 3px; }
+  .spinner { color: var(--muted); font-size: 1rem; padding: 44px; text-align: center; }
+  .a-btn { display: inline-block; background: linear-gradient(135deg, #34d399, #10b981); color: #052e21; border-radius: 10px; padding: 9px 20px; font-size: .9rem; text-decoration: none; font-weight: 700; }
+  .a-btn.blue { background: var(--grad); color: #0b0e14; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Job<span class="grad">Finder</span></h1>
+      <div class="sub" id="subline">Loading profile…</div>
+      <div class="last-refresh" id="lastRefresh">Loading…</div>
+    </div>
+    <button class="primary" id="refreshBtn" onclick="refresh()">⟳ Refresh now</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <details class="panel quick">
+    <summary>🔗 One-click searches — boards without public APIs (Indeed, Naukri, Foundit, …)</summary>
+    <div class="body">
+      <a target="_blank" href="https://www.linkedin.com/jobs/search/?keywords=data%20engineer&f_E=1%2C2&f_WT=2%2C3&f_TPR=r86400">LinkedIn · Data Engineer (entry, 24h)</a>
+      <a target="_blank" href="https://www.linkedin.com/jobs/search/?keywords=AI%20engineer%20OR%20LLM%20OR%20generative%20AI&f_E=1%2C2&f_WT=2%2C3&f_TPR=r86400">LinkedIn · AI/LLM (entry, 24h)</a>
+      <a target="_blank" href="https://www.indeed.com/jobs?q=data+engineer+entry+level&sc=0kf%3Aattr(DSQF7)%3B&fromage=1">Indeed · Data Engineer (remote, 24h)</a>
+      <a target="_blank" href="https://www.indeed.com/jobs?q=%22AI+engineer%22+OR+%22LLM%22+entry+level&sc=0kf%3Aattr(DSQF7)%3B&fromage=1">Indeed · AI/LLM (remote, 24h)</a>
+      <a target="_blank" href="https://www.linkedin.com/jobs/search/?keywords=data%20engineer&f_E=1%2C2&f_TPR=r86400">LinkedIn · Data Engineer (all modes, 24h)</a>
+      <a target="_blank" href="https://www.linkedin.com/jobs/search/?keywords=AI%20engineer%20OR%20LLM&f_E=1%2C2&f_TPR=r86400">LinkedIn · AI/LLM (all modes, 24h)</a>
+      <a target="_blank" href="https://www.indeed.com/jobs?q=junior+data+engineer&fromage=1">Indeed · Data Engineer (all modes, 24h)</a>
+      <a target="_blank" href="https://www.indeed.com/jobs?q=%22AI+engineer%22+OR+llm+junior&fromage=1">Indeed · AI/LLM (all modes, 24h)</a>
+      <a target="_blank" href="https://in.indeed.com/jobs?q=data+engineer&l=India&fromage=7&sc=0kf%3Aattr(DSQF7)%3B">Indeed India · Data Eng (remote, 7d)</a>
+      <a target="_blank" href="https://in.indeed.com/jobs?q=ai+engineer+OR+llm&l=Bengaluru&fromage=7">Indeed India · AI/LLM Bengaluru (7d)</a>
+      <a target="_blank" href="https://www.naukri.com/data-engineer-jobs?experience=1&jobAge=7">Naukri · Data Engineer (1yr, 7d)</a>
+      <a target="_blank" href="https://www.naukri.com/ai-engineer-jobs?experience=1&jobAge=7">Naukri · AI Engineer (1yr, 7d)</a>
+      <a target="_blank" href="https://www.naukri.com/data-engineer-jobs-in-bangalore?experience=1&jobAge=7">Naukri · Data Eng Bangalore (7d)</a>
+      <a target="_blank" href="https://www.naukri.com/data-engineer-jobs-in-hyderabad?experience=1&jobAge=7">Naukri · Data Eng Hyderabad (7d)</a>
+      <a target="_blank" href="https://www.naukri.com/data-engineer-jobs-in-pune?experience=1&jobAge=7">Naukri · Data Eng Pune (7d)</a>
+      <a target="_blank" href="https://www.naukri.com/generative-ai-jobs?experience=1&jobAge=7">Naukri · GenAI / LLM (1yr, 7d)</a>
+      <a target="_blank" href="https://www.naukri.com/machine-learning-engineer-jobs?experience=1&jobAge=7">Naukri · ML Engineer (1yr, 7d)</a>
+      <a target="_blank" href="https://www.foundit.in/search/data-engineer-jobs">Foundit (Monster India) · Data Eng</a>
+      <a target="_blank" href="https://cutshort.io/jobs/data-engineer-jobs">Cutshort · Data Engineer (India)</a>
+      <a target="_blank" href="https://hirist.tech/search/data-engineer-jobs">Hirist · Data Engineer (India tech)</a>
+      <a target="_blank" href="https://wellfound.com/role/r/data-engineer">Wellfound · Data Engineer</a>
+      <a target="_blank" href="https://wellfound.com/role/r/machine-learning-engineer">Wellfound · ML/AI</a>
+      <a target="_blank" href="https://www.ycombinator.com/jobs/role/machine-learning-engineer">YC Jobs · ML/AI</a>
+      <a target="_blank" href="https://www.simplyhired.com/search?q=junior+data+engineer&l=remote">SimplyHired · Data Engineer</a>
+      <a target="_blank" href="https://www.simplyhired.com/search?q=%22ai+engineer%22+OR+llm&l=remote">SimplyHired · AI/LLM</a>
+      <a target="_blank" href="https://datajobs.com/Data-Engineering-Jobs">DataJobs · Data Engineering</a>
+      <a target="_blank" href="https://www.flexjobs.com/search?searchkeyword=data+engineer">FlexJobs · Data Engineer</a>
+      <a target="_blank" href="https://remote.co/remote-jobs/search?searchkeyword=data+engineer">Remote.co · Data Engineer</a>
+      <a target="_blank" href="https://www.virtualvocations.com/jobs/q-data+engineer">Virtual Vocations · Data Eng</a>
+      <a target="_blank" href="https://www.remoterocketship.com/jobs?search=data+engineer&seniority=Entry-level">Remote Rocketship · Entry Data Eng</a>
+      <a target="_blank" href="https://www.skipthedrive.com/?s=data+engineer">Skip The Drive · Data Eng</a>
+      <a target="_blank" href="https://www.toptal.com/freelance-jobs">Toptal · Freelance</a>
+      <a target="_blank" href="https://www.freelancer.com/jobs/machine-learning">Freelancer · ML gigs</a>
+      <a target="_blank" href="https://www.outsourcely.com/remote-workers">Outsourcely</a>
+    </div>
+  </details>
+
+  <details class="panel settings" id="settingsBox">
+    <summary>⚙️ Settings — resume &amp; OpenAI key <span id="setupState" class="warn"></span></summary>
+    <div class="body">
+      <div class="row">
+        <label>📄 Your resume</label>
+        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt,.md">
+        <button onclick="uploadResume()">Upload</button>
+        <span class="hint" id="resumeStatus">none uploaded</span>
+      </div>
+      <div class="row">
+        <label>🔑 OpenAI API key</label>
+        <input type="password" id="apiKey" placeholder="sk-…  (stored locally, used only for resume tailoring)">
+        <button onclick="saveKey()">Save</button>
+        <span class="hint" id="keyStatus"></span>
+      </div>
+      <div class="row">
+        <label>🔎 JSearch key <span class="hint">(optional)</span></label>
+        <input type="password" id="jsearchKey" placeholder="RapidAPI key — adds Indeed + Naukri + Glassdoor results (free tier at rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch)">
+        <button onclick="saveJsearchKey()">Save</button>
+        <span class="hint" id="jsearchStatus"></span>
+      </div>
+      <p class="hint" style="margin-top:12px">Upload your resume once, then hit “✨ Tailor resume” on any job — GPT rewrites it with that job's ATS keywords (never inventing experience) and you can download it as .docx or .md.</p>
+    </div>
+  </details>
+
+  <div class="tabs" id="roleTabs">
+    <button class="tab active" data-role="">All roles</button>
+  </div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="🔍 Search title, company, skills…">
+    <select id="fExp">
+      <option value="">Experience: all</option>
+      <option value="entry">Entry / fresher</option>
+      <option value="junior">≤ 1 year</option>
+      <option value="unspecified">Unspecified</option>
+      <option value="stretch">Stretch (2–3 yrs)</option>
+    </select>
+    <select id="fMode">
+      <option value="">Mode: all</option>
+      <option value="remote">Remote (all)</option>
+      <option value="remote-india" id="optRemoteLocal">Remote · local only</option>
+      <option value="hybrid">Hybrid</option>
+      <option value="onsite">In office</option>
+    </select>
+    <select id="fSource"><option value="">Source: all</option></select>
+    <select id="fStatus">
+      <option value="">Status: active</option>
+      <option value="new">New</option>
+      <option value="saved">Saved</option>
+      <option value="applied">Applied</option>
+      <option value="hidden">Hidden</option>
+    </select>
+    <select id="fSort">
+      <option value="date">Sort: newest</option>
+      <option value="fit">Sort: best fit</option>
+    </select>
+  </div>
+
+  <div class="count-line" id="countLine"></div>
+  <div id="list"></div>
+</div>
+
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <header><h3 id="mTitle">Tailored resume</h3></header>
+    <div class="m-body" id="mBody"></div>
+    <div class="m-foot" id="mFoot"></div>
+  </div>
+</div>
+
+<script>
+let ALL = [];
+const $ = id => document.getElementById(id);
+const state = { role: "" };
+let CFG = { roles: [], country: "your country", onsite_cities: [], max_age_days: 7 };
+let ROLE_LABEL = {};
+const ROLE_CLASS = ["b-role-data", "b-role-ai", "b-role-3", "b-role-4", "b-role-5"];
+
+async function loadConfig() {
+  try { CFG = await (await fetch("/api/config")).json(); } catch (e) {}
+  ROLE_LABEL = Object.fromEntries(CFG.roles.map(r => [r.key, r.label]));
+
+  // role filter tabs
+  const tabs = $("roleTabs");
+  tabs.querySelectorAll(".tab:not(:first-child)").forEach(t => t.remove());
+  CFG.roles.forEach(r => {
+    const b = document.createElement("button");
+    b.className = "tab"; b.dataset.role = r.key; b.textContent = r.label;
+    tabs.appendChild(b);
+  });
+  tabs.querySelectorAll(".tab").forEach(bindTab);
+
+  // header subline, filter label, India->country
+  const cities = CFG.onsite_cities.length ? " + In office (" + CFG.onsite_cities.join(", ") + ")" : "";
+  $("subline").innerHTML = "Entry-level " +
+    CFG.roles.map(r => "<b>" + r.label + "</b>").join(" &amp; ") +
+    " roles · Remote + Hybrid" + cities + " · last " + CFG.max_age_days + " days";
+  $("optRemoteLocal").textContent = "Remote · " + CFG.country + " only";
+  if (!CFG.require_local_eligibility) $("optRemoteLocal").style.display = "none";
+}
+
+async function load() {
+  const r = await fetch("/api/jobs?include_hidden=true");
+  ALL = (await r.json()).jobs;
+  buildSourceFilter();
+  render();
+  loadStatus();
+  // if the first fetch hasn't finished yet, keep polling until jobs appear
+  if (!ALL.length) setTimeout(load, 5000);
+}
+
+async function loadStatus() {
+  const s = await (await fetch("/api/status")).json();
+  if (s.refreshing) {
+    trackRefresh();
+    return;
+  }
+  if (s.at) {
+    const d = new Date(s.at + "Z");
+    $("lastRefresh").textContent =
+      `Last refreshed ${d.toLocaleString()} · ${s.matched} matches · ${s.new} new`;
+  } else {
+    $("lastRefresh").textContent = "⏳ First fetch in progress — jobs will appear in ~1 minute…";
+  }
+}
+
+function buildSourceFilter() {
+  const sources = [...new Set(ALL.map(j => j.source))].sort();
+  const sel = $("fSource"), cur = sel.value;
+  sel.length = 1;
+  sources.forEach(s => sel.add(new Option(s, s)));
+  sel.value = cur;
+}
+
+function rel(iso) {
+  if (!iso) return "date unknown";
+  const days = Math.floor((Date.now() - new Date(iso + "Z")) / 864e5);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return days + "d ago";
+  return Math.floor(days / 30) + "mo ago";
+}
+
+function filtered() {
+  const q = $("q").value.toLowerCase(),
+        exp = $("fExp").value, mode = $("fMode").value,
+        src = $("fSource").value, st = $("fStatus").value;
+  let out = ALL.filter(j =>
+    (!state.role || j.role === state.role) &&
+    (!exp || j.experience === exp) &&
+    (!mode || (mode === "remote-india"
+        ? (j.work_mode === "remote" && j.region === "local")
+        : j.work_mode === mode)) &&
+    (!src || j.source === src) &&
+    (st ? j.status === st : j.status !== "hidden") &&
+    (!q || (j.title + " " + j.company + " " + j.skills).toLowerCase().includes(q))
+  );
+  out.sort($("fSort").value === "fit"
+    ? (a, b) => b.fit_score - a.fit_score
+    : (a, b) => (b.posted_at || "").localeCompare(a.posted_at || ""));
+  return out;
+}
+
+function esc(s) {
+  return (s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+const EXP_LABEL = { entry: "Entry / Fresher", junior: "≤ 1 yr", unspecified: "Exp. unspecified", stretch: "Stretch (2–3 yrs)" };
+
+function render() {
+  const jobs = filtered();
+  const today = new Date().toISOString().slice(0, 10);
+  $("countLine").textContent = `${jobs.length} job${jobs.length === 1 ? "" : "s"} shown`;
+
+  const stats = [
+    [ALL.filter(j => j.status !== "hidden").length, "Active jobs"],
+    [ALL.filter(j => (j.fetched_at || "").startsWith(today)).length, "New today"],
+    ...CFG.roles.slice(0, 2).map(r =>
+      [ALL.filter(j => j.role === r.key && j.status !== "hidden").length, r.label]),
+    [ALL.filter(j => j.status === "applied").length, "Applied"],
+    [ALL.filter(j => j.status === "saved").length, "Saved"],
+  ];
+  $("stats").innerHTML = stats.map(([n, l], i) =>
+    `<div class="stat s${i}"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join("");
+
+  if (!jobs.length) {
+    $("list").innerHTML = ALL.length
+      ? `<div class="empty"><div class="big">🔍</div>No jobs match these filters.<br>Try clearing filters or hit “⟳ Refresh now”.</div>`
+      : `<div class="empty"><div class="big">⏳</div>Fetching jobs from 10 boards — this page will update automatically…</div>`;
+    return;
+  }
+  $("list").innerHTML = jobs.map(j => `
+    <div class="job ${j.status}">
+      <div class="job-top">
+        <div>
+          <h3><a href="${esc(j.url)}" target="_blank">${esc(j.title)}</a></h3>
+          <span class="company">${esc(j.company) || "—"}</span>
+          <div class="meta">
+            <span>📍 ${esc(j.location)}</span>
+            ${j.salary ? `<span>💰 ${esc(j.salary)}</span>` : ""}
+            <span>🕒 ${rel(j.posted_at)}</span>
+            <span class="fit" style="color:${j.fit_score >= 60 ? "var(--green)" : j.fit_score >= 40 ? "var(--amber)" : "var(--muted)"}">Fit ${j.fit_score}%</span>
+          </div>
+        </div>
+        <div class="badges">
+          <span class="badge ${ROLE_CLASS[CFG.roles.findIndex(r => r.key === j.role)] || "b-role-data"}">${esc(ROLE_LABEL[j.role] || j.role)}</span>
+          <span class="badge b-${j.experience}">${EXP_LABEL[j.experience]}</span>
+          <span class="badge b-${j.work_mode}">${j.work_mode}</span>
+          ${j.work_mode === "remote" && j.region === "local" ? `<span class="badge b-india">📍 ${esc(CFG.country)}</span>` : ""}
+          <span class="badge b-src">${esc(j.source)}</span>
+        </div>
+      </div>
+      ${j.skills ? `<div class="skills">${j.skills.split(",").map(s => `<span class="skill">${esc(s)}</span>`).join("")}</div>` : ""}
+      ${j.description ? `<div class="desc">${esc(j.description.slice(0, 300))}…</div>` : ""}
+      <div class="actions">
+        <a class="apply" href="${esc(j.url)}" target="_blank">Apply ↗</a>
+        <button class="${j.status === "saved" ? "on" : ""}" onclick="setStatus('${esc(j.id)}','${j.status === "saved" ? "new" : "saved"}')">★ ${j.status === "saved" ? "Saved" : "Save"}</button>
+        <button class="${j.status === "applied" ? "on" : ""}" onclick="setStatus('${esc(j.id)}','${j.status === "applied" ? "new" : "applied"}')">✓ ${j.status === "applied" ? "Applied" : "Mark applied"}</button>
+        <button onclick="setStatus('${esc(j.id)}','${j.status === "hidden" ? "new" : "hidden"}')">${j.status === "hidden" ? "Unhide" : "Hide"}</button>
+        <button class="tailor-btn" onclick="tailor('${esc(j.id)}')">✨ Tailor resume</button>
+      </div>
+    </div>`).join("");
+}
+
+async function setStatus(id, status) {
+  const r = await fetch("/api/jobs/status", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, status }),
+  });
+  if (!r.ok) {
+    alert("Couldn't save that — please reload the page and try again.");
+    return;
+  }
+  const j = ALL.find(x => x.id === id);
+  if (j) j.status = status;
+  render();
+}
+
+let _tracking = false;
+
+async function refresh() {
+  await fetch("/api/refresh", { method: "POST" });
+  trackRefresh();
+}
+
+// poll /api/status until the background refresh finishes, showing progress
+async function trackRefresh() {
+  if (_tracking) return;
+  _tracking = true;
+  const btn = $("refreshBtn");
+  btn.disabled = true;
+  try {
+    while (true) {
+      const s = await (await fetch("/api/status")).json();
+      if (!s.refreshing) break;
+      const p = s.progress || {};
+      btn.textContent = p.total
+        ? `Fetching ${p.current || "…"} (${p.done + 1}/${p.total})`
+        : "Refreshing…";
+      $("lastRefresh").textContent = "⏳ Refresh in progress…";
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    await load();
+  } finally {
+    _tracking = false;
+    btn.disabled = false; btn.textContent = "⟳ Refresh now";
+  }
+}
+
+// ---------------------------------------------------------- resume tailoring
+async function loadSettings() {
+  const [s, r] = await Promise.all([
+    fetch("/api/settings").then(x => x.json()),
+    fetch("/api/resume").then(x => x.json()),
+  ]);
+  $("keyStatus").textContent = s.openai_key_set ? `✓ key saved (${s.openai_key_hint})` : "no key set";
+  $("keyStatus").className = "hint " + (s.openai_key_set ? "ok" : "warn");
+  $("jsearchStatus").textContent = s.jsearch_key_set ? "✓ key saved — Indeed + Naukri enabled" : "not set — Indeed/Naukri via quick-links only";
+  $("jsearchStatus").className = "hint " + (s.jsearch_key_set ? "ok" : "");
+  $("resumeStatus").textContent = r.filename
+    ? `✓ ${r.filename} (${new Date(r.uploaded_at + "Z").toLocaleDateString()})` : "none uploaded";
+  $("resumeStatus").className = "hint " + (r.filename ? "ok" : "warn");
+  const ready = s.openai_key_set && r.filename;
+  $("setupState").textContent = ready ? "· ready ✓" : "· setup needed";
+  $("setupState").className = ready ? "ok" : "warn";
+}
+
+async function uploadResume() {
+  const f = $("resumeFile").files[0];
+  if (!f) return alert("Choose a file first (PDF, DOCX, TXT or MD).");
+  const fd = new FormData();
+  fd.append("file", f);
+  const r = await fetch("/api/resume", { method: "POST", body: fd });
+  if (!r.ok) return alert((await r.json()).detail || "Upload failed");
+  loadSettings();
+}
+
+async function saveKey() {
+  const key = $("apiKey").value.trim();
+  if (!key) return alert("Paste your OpenAI API key first.");
+  const r = await fetch("/api/settings/openai-key", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!r.ok) return alert("Failed to save key");
+  $("apiKey").value = "";
+  loadSettings();
+}
+
+async function saveJsearchKey() {
+  const key = $("jsearchKey").value.trim();
+  if (!key) return alert("Paste your RapidAPI (JSearch) key first.");
+  const r = await fetch("/api/settings/jsearch-key", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  if (!r.ok) return alert("Failed to save key");
+  $("jsearchKey").value = "";
+  loadSettings();
+}
+
+function openModal(title) {
+  $("mTitle").textContent = title;
+  $("modalBg").classList.add("open");
+}
+function closeModal() { $("modalBg").classList.remove("open"); }
+
+async function tailor(id) {
+  const j = ALL.find(x => x.id === id);
+  openModal(`Tailoring resume for: ${j ? j.title : id}`);
+  $("mFoot").innerHTML = `<button onclick="closeModal()">Close</button>`;
+
+  const cached = await fetch(`/api/jobs/${encodeURIComponent(id)}/tailor`);
+  if (cached.ok) {
+    showTailored(id, await cached.json(), true);
+    return;
+  }
+  await generateTailored(id);
+}
+
+async function generateTailored(id) {
+  $("mBody").innerHTML = `<div class="spinner">✨ Asking GPT to tailor your resume… this takes ~20–40 s</div>`;
+  const r = await fetch(`/api/jobs/${encodeURIComponent(id)}/tailor`, { method: "POST" });
+  if (!r.ok) {
+    const err = (await r.json()).detail || "Failed";
+    $("mBody").innerHTML = `<p class="warn">⚠ ${err}</p>`;
+    return;
+  }
+  showTailored(id, await r.json(), false);
+}
+
+function showTailored(id, t, fromCache) {
+  const kws = (t.keywords || []).map(k => `<span class="kw">${esc(k)}</span>`).join("");
+  const chs = (t.changes || []).map(c => `<li>${esc(c)}</li>`).join("");
+  $("mBody").innerHTML = `
+    ${fromCache ? `<p class="hint">Showing previously generated version (${new Date(t.created_at + "Z").toLocaleString()}).</p>` : ""}
+    ${kws ? `<p><b>ATS keywords used:</b><br>${kws}</p>` : ""}
+    ${chs ? `<p style="margin-top:12px"><b>What was changed:</b></p><ul class="changes">${chs}</ul>` : ""}
+    <p style="margin:12px 0 8px"><b>Preview:</b></p>
+    <pre>${esc(t.resume_md)}</pre>`;
+  $("mFoot").innerHTML = `
+    <a class="a-btn" href="/api/jobs/${encodeURIComponent(id)}/tailor/download?fmt=docx">⬇ Download .docx</a>
+    <a class="a-btn blue" href="/api/jobs/${encodeURIComponent(id)}/tailor/download?fmt=md">⬇ Download .md</a>
+    <button onclick="generateTailored('${esc(id)}')">↻ Re-generate</button>
+    <button onclick="closeModal()">Close</button>`;
+}
+
+function bindTab(t) {
+  t.onclick = () => {
+    document.querySelectorAll("#roleTabs .tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    state.role = t.dataset.role;
+    render();
+  };
+}
+bindTab($("roleTabs").querySelector(".tab"));  // the "All roles" tab
+
+["q", "fExp", "fMode", "fSource", "fStatus", "fSort"].forEach(id =>
+  $(id).addEventListener("input", render));
+
+loadConfig().then(load);
+loadSettings();
+</script>
+</body>
+</html>
