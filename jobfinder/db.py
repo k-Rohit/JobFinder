@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     fetched_at  TEXT NOT NULL,
     fit_score   INTEGER DEFAULT 0,
     status      TEXT DEFAULT 'new',      -- new | saved | applied | hidden
-    region      TEXT DEFAULT 'global'    -- india | global (who can apply)
+    region      TEXT DEFAULT 'global',   -- local | global (who can apply)
+    favorite    INTEGER DEFAULT 0        -- 1 if from a favourite company
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_posted ON jobs(posted_at);
@@ -50,10 +51,14 @@ def get_conn():
 def init_db():
     with _lock, get_conn() as conn:
         conn.executescript(SCHEMA)
-        try:  # migration for DBs created before the region column existed
-            conn.execute("ALTER TABLE jobs ADD COLUMN region TEXT DEFAULT 'global'")
-        except sqlite3.OperationalError:
-            pass
+        for col, ddl in (  # migrations for DBs created before these columns
+            ("region", "ALTER TABLE jobs ADD COLUMN region TEXT DEFAULT 'global'"),
+            ("favorite", "ALTER TABLE jobs ADD COLUMN favorite INTEGER DEFAULT 0"),
+        ):
+            try:
+                conn.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
 
 
 def upsert_jobs(jobs: list[dict]) -> int:
@@ -65,10 +70,10 @@ def upsert_jobs(jobs: list[dict]) -> int:
                 """INSERT OR IGNORE INTO jobs
                    (id, source, title, company, url, location, work_mode, role,
                     experience, salary, skills, description, posted_at, fetched_at,
-                    fit_score, region)
+                    fit_score, region, favorite)
                    VALUES (:id, :source, :title, :company, :url, :location, :work_mode,
                            :role, :experience, :salary, :skills, :description,
-                           :posted_at, :fetched_at, :fit_score, :region)""",
+                           :posted_at, :fetched_at, :fit_score, :region, :favorite)""",
                 j,
             )
             new += cur.rowcount

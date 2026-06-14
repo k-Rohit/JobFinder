@@ -600,6 +600,117 @@ def _jsearch_salary(item: dict) -> str:
     return ""
 
 
+# ------------------------------------------------- favourite companies
+
+def _fetch_lever(token: str, company: str) -> list[dict]:
+    """Fetch a company's postings from its public Lever board."""
+    try:
+        data = _get_json(f"https://api.lever.co/v0/postings/{token}?mode=json")
+    except Exception as e:
+        log.warning("Lever %s failed: %s", token, e)
+        return []
+    out = []
+    for item in data:
+        cats = item.get("categories") or {}
+        posted = ""
+        if item.get("createdAt"):
+            posted = _iso(datetime.fromtimestamp(item["createdAt"] / 1000, tz=timezone.utc))
+        out.append({
+            "source": company,
+            "favorite": True,
+            "source_id": item.get("id") or item.get("hostedUrl", ""),
+            "title": item.get("text") or "",
+            "company": company,
+            "url": item.get("hostedUrl") or item.get("applyUrl") or "",
+            "location": cats.get("location") or "",
+            "salary": "",
+            "description": strip_html(item.get("descriptionPlain")
+                                      or item.get("description") or "")[:6000],
+            "posted_at": posted,
+        })
+    return out
+
+
+# Role anchors that surface a company's DE/AI postings on LinkedIn. Each is
+# combined with the company name ("data scientist Swiggy"), which reliably
+# returns that employer's matching roles.
+FAV_ANCHORS = ["data engineer", "data scientist", "machine learning engineer",
+               "ai engineer"]
+
+
+def fetch_favorite_companies() -> list[dict]:
+    """DE/AI roles at the user's favourite companies: official ATS boards where
+    they exist, plus company-targeted LinkedIn searches per role anchor."""
+    out, seen = [], set()
+    for fav in CONFIG.get("favorite_companies", []):
+        name = fav["name"]
+        if fav.get("lever"):
+            out.extend(_fetch_lever(fav["lever"], name))
+        if fav.get("greenhouse"):
+            out.extend(_fetch_greenhouse(fav["greenhouse"], name))
+        # "{anchor} {company}" surfaces the employer's roles; we keep only cards
+        # whose company actually matches the favourite (off-company hits ignored).
+        for anchor in FAV_ANCHORS:
+            try:
+                r = requests.get(LI_SEARCH, headers=BROWSER_UA, timeout=TIMEOUT,
+                                 params={"keywords": f"{anchor} {name}",
+                                         "location": COUNTRY, "start": 0})
+                if r.status_code != 200:
+                    break
+                cards = _LI_CARD_RE.split(r.text)[1:]
+                for job_id, card in zip(cards[::2], cards[1::2]):
+                    if job_id in seen:
+                        continue
+                    title = strip_html(_search1(_LI_TITLE_RE, card))
+                    url = _search1(_LI_URL_RE, card).split("?")[0]
+                    company = strip_html(_search1(_LI_COMPANY_RE, card))
+                    if not title or not url or not filters.match_favorite(company):
+                        continue
+                    seen.add(job_id)
+                    out.append({
+                        "source": "LinkedIn",
+                        "favorite": True,
+                        "source_id": job_id,
+                        "title": title,
+                        "company": company,
+                        "url": url,
+                        "location": strip_html(_search1(_LI_LOC_RE, card)),
+                        "salary": "",
+                        "description": "",
+                        "posted_at": _search1(_LI_DATE_RE, card),
+                    })
+                time.sleep(0.8)
+            except Exception as e:
+                log.warning("LinkedIn favourite %s/%s failed: %s", name, anchor, e)
+                continue
+    return out
+
+
+def _fetch_greenhouse(token: str, company: str) -> list[dict]:
+    """Fetch a company's postings from its public Greenhouse board."""
+    try:
+        data = _get_json(
+            f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true")
+    except Exception as e:
+        log.warning("Greenhouse %s failed: %s", token, e)
+        return []
+    out = []
+    for item in data.get("jobs", []):
+        out.append({
+            "source": company,
+            "favorite": True,
+            "source_id": str(item.get("id") or item.get("absolute_url", "")),
+            "title": item.get("title") or "",
+            "company": company,
+            "url": item.get("absolute_url") or "",
+            "location": (item.get("location") or {}).get("name", ""),
+            "salary": "",
+            "description": strip_html(item.get("content") or "")[:6000],
+            "posted_at": (item.get("updated_at") or "")[:19],
+        })
+    return out
+
+
 FETCHERS = [
     fetch_remoteok,
     fetch_weworkremotely,
@@ -613,6 +724,7 @@ FETCHERS = [
     fetch_nodesk,
     fetch_linkedin,
     fetch_jsearch,
+    fetch_favorite_companies,
 ]
 
 
@@ -623,7 +735,10 @@ def normalize(raw: dict) -> dict | None:
     title = raw["title"].strip()
     if not title or not raw["url"]:
         return None
-    if raw["posted_at"]:
+    favorite = bool(raw.get("favorite") or filters.match_favorite(raw["company"]))
+    # Freshness applies to the broad boards; favourite companies are tracked
+    # regardless of how long the posting has been open.
+    if raw["posted_at"] and not favorite:
         try:
             posted = datetime.fromisoformat(raw["posted_at"])
             if posted.tzinfo:
@@ -632,10 +747,12 @@ def normalize(raw: dict) -> dict | None:
                 return None
         except ValueError:
             pass
-    role = filters.match_role(title)
+    # favourites use a broader role vocabulary (Data Scientist, SDE-Data, …)
+    role = filters.match_favorite_role(title) if favorite else filters.match_role(title)
     if not role:
         return None
-    experience = filters.classify_experience(title, raw["description"])
+    experience = filters.classify_experience(title, raw["description"],
+                                             allow_senior=favorite)
     if experience is None:
         return None
     text = f"{title}\n{raw['description']}"
@@ -644,11 +761,14 @@ def normalize(raw: dict) -> dict | None:
     hint = raw.get("work_mode_hint", "remote")
     work_mode = filters.detect_work_mode(title, raw["location"], raw["description"],
                                          hint=hint)
-    # remote roles can be anywhere; office/hybrid only in the configured cities
-    if work_mode != "remote" and not filters.ONSITE_CITIES.search(raw["location"]):
+    # remote roles can be anywhere; office/hybrid only in the configured cities —
+    # but favourite companies are kept wherever they are.
+    if (work_mode != "remote" and not favorite
+            and not filters.ONSITE_CITIES.search(raw["location"])):
         return None
     # every job must be open to candidates in the configured country
-    if work_mode == "remote":
+    # (favourites are exempt — you want them regardless of stated region)
+    if work_mode == "remote" and not favorite:
         region = filters.hiring_region(raw["location"], raw["description"])
         if region == "other":
             return None
@@ -674,6 +794,7 @@ def normalize(raw: dict) -> dict | None:
         "posted_at": raw["posted_at"],
         "fetched_at": _iso(datetime.now(timezone.utc)),
         "fit_score": filters.fit_score(experience, skills, role),
+        "favorite": int(favorite),
     }
 
 
@@ -699,6 +820,11 @@ def fetch_all(progress=None) -> tuple[list[dict], dict]:
     best: dict[tuple, dict] = {}
     for j in jobs:
         key = (j["title"].lower(), j["company"].lower())
-        if key not in best or j["fit_score"] > best[key]["fit_score"]:
+        prev = best.get(key)
+        if prev is None or j["fit_score"] > prev["fit_score"]:
+            if prev:  # don't lose a favourite flag set on the discarded copy
+                j["favorite"] = j["favorite"] or prev["favorite"]
             best[key] = j
+        elif j["favorite"]:
+            prev["favorite"] = 1
     return list(best.values()), stats

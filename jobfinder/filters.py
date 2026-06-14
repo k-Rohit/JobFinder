@@ -40,8 +40,17 @@ def _exp_re(lo: int, hi: int) -> re.Pattern:
 _ROLE_RES = {r["key"]: _kw_alt(r["title_keywords"]) for r in CONFIG["roles"]}
 ROLE_LABELS = {r["key"]: r["label"] for r in CONFIG["roles"]}
 
-# Titles that are clearly NOT individual-contributor engineering roles
-EXCLUDE_TITLE = _kw_alt(CONFIG["exclude_title_keywords"])
+# Split the title exclusions: "senior" markers vs "not an IC engineer" markers.
+# Non-favourite roles drop on either; favourite-company roles keep senior ones
+# (labelled "senior") and only drop true non-IC titles.
+_SENIOR_WORDS = {"senior", "sr", "sr.", "staff", "principal", "lead", "architect",
+                 "iii", "iv", "ii"}
+_excl = CONFIG["exclude_title_keywords"]
+SENIOR_TITLE = _kw_alt([w for w in _excl if w.lower() in _SENIOR_WORDS]
+                       or ["senior"])
+NON_IC_TITLE = _kw_alt([w for w in _excl if w.lower() not in _SENIOR_WORDS]
+                       or ["manager"])
+EXCLUDE_TITLE = _kw_alt(_excl)  # senior + non-IC (used for non-favourites)
 
 ENTRY_HINTS = re.compile(
     r"\b(entry[\s-]?level|junior|jr\.?|graduate|grad|fresher|early[\s-]?career|"
@@ -153,6 +162,36 @@ SKILLS = {
 _SKILL_RES = {name: re.compile(pat, re.I) for name, pat in SKILLS.items()}
 
 
+# ------------------------------------------------- favourite companies
+_FAV = CONFIG.get("favorite_companies", [])
+# alias (lowercased) -> canonical company name
+_FAV_ALIASES = {a.lower(): c["name"] for c in _FAV for a in c.get("match", [])}
+
+
+def match_favorite(company: str) -> str | None:
+    """Return the canonical favourite-company name if `company` is one, else None."""
+    c = (company or "").lower()
+    for alias, name in _FAV_ALIASES.items():
+        if alias in c:
+            return name
+    return None
+
+
+# Broader role matcher for favourite-company postings (Data Scientist, etc.)
+_FAV_ROLE_RES = {
+    key: _kw_alt(kws)
+    for key, kws in CONFIG.get("favorite_role_keywords", {}).items()
+}
+
+
+def match_favorite_role(title: str) -> str | None:
+    """Role key using the broader favourite vocabulary, else None."""
+    for key, rx in _FAV_ROLE_RES.items():
+        if rx.search(title):
+            return key
+    return match_role(title)
+
+
 def match_role(title: str) -> str | None:
     """Return the matching role key (e.g. 'data-engineer') or None."""
     for key, rx in _ROLE_RES.items():
@@ -161,21 +200,30 @@ def match_role(title: str) -> str | None:
     return None
 
 
-def classify_experience(title: str, description: str) -> str | None:
-    """Return experience tag, or None if the job is clearly too senior.
+def classify_experience(title: str, description: str,
+                        allow_senior: bool = False) -> str | None:
+    """Return experience tag, or None if the job should be dropped.
 
     entry      - explicitly junior/entry/fresher friendly
     junior     - asks for <= 1 year
     stretch    - asks for 2-3 years (worth applying as a fresher)
+    senior     - clearly senior (only kept when allow_senior, e.g. favourites)
     unspecified- no clear requirement (kept; many entry-friendly posts don't say)
+
+    Non-IC titles (manager/director/…) are always dropped. With allow_senior
+    (favourite companies), senior IC roles are labelled "senior" instead of
+    dropped, so the company tracker shows their whole DE/AI board.
     """
-    if EXCLUDE_TITLE.search(title):
+    if NON_IC_TITLE.search(title):
+        return None
+    senior = bool(SENIOR_TITLE.search(title) or TOO_SENIOR_EXP.search(description))
+    if senior and not allow_senior:
         return None
     text = f"{title}\n{description}"
     if ENTRY_HINTS.search(text):
         return "entry"
-    if TOO_SENIOR_EXP.search(description):
-        return None
+    if senior:
+        return "senior"
     if OK_EXP.search(description):
         return "junior"
     if STRETCH_EXP.search(description):
@@ -208,7 +256,8 @@ def detect_work_mode(title: str, location: str, description: str,
 
 def fit_score(experience: str, skills: list[str], role: str) -> int:
     """0-100 rough relevance score for an entry-level candidate."""
-    score = {"entry": 50, "junior": 40, "unspecified": 20, "stretch": 15}.get(experience, 0)
+    score = {"entry": 50, "junior": 40, "unspecified": 20, "stretch": 15,
+             "senior": 5}.get(experience, 0)
     score += min(len(skills) * 4, 40)
     if role:
         score += 10
