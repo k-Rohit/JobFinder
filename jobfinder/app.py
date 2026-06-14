@@ -215,4 +215,9 @@ def index():
                         headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse(STATIC_DIR / "favicon.svg", media_type="image/svg+xml")
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
