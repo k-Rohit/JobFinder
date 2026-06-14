@@ -104,6 +104,48 @@ DEFAULTS = {
 
     # Only show postings newer than this many days.
     "max_age_days": 7,
+
+    # Broader role vocabulary used ONLY for favourite-company postings, since
+    # big companies title data/AI roles many ways (Data Scientist, Applied
+    # Scientist, SDE - Data, Data Platform Engineer, ...). Maps each to one of
+    # the role keys above for the badge/tab.
+    "favorite_role_keywords": {
+        "data-engineer": [
+            "data engineer", "data platform engineer", "data infrastructure",
+            "analytics engineer", "etl developer", "data pipeline", "data analyst",
+            "software development engineer - data", "sde - data", "bigdata",
+            "big data engineer",
+        ],
+        "ai-engineer": [
+            "ai engineer", "artificial intelligence engineer", "ml engineer",
+            "machine learning engineer", "machine learning", "data scientist",
+            "applied scientist", "research scientist", "mlops", "nlp",
+            "computer vision", "generative ai", "gen ai", "genai", "llm",
+            "deep learning", "ai/ml",
+        ],
+    },
+
+    # Favourite companies — their DE/AI roles get a dedicated dashboard tab and
+    # bypass the onsite-city restriction (any location for these is kept).
+    # `match` = names/aliases to recognize the employer across all sources.
+    # `lever` / `greenhouse` / `ashby` = ATS board token if the company has one
+    # (used to fetch their postings directly).
+    "favorite_companies": [
+        {"name": "Meesho", "match": ["meesho"], "lever": "meesho",
+         "careers": "https://www.meesho.io/jobs"},
+        {"name": "Swiggy", "match": ["swiggy"],
+         "careers": "https://careers.swiggy.com"},
+        {"name": "Zomato", "match": ["zomato", "eternal"],
+         "careers": "https://www.zomato.com/careers"},
+        {"name": "Blinkit", "match": ["blinkit", "grofers"],
+         "careers": "https://blinkit.com/careers"},
+        {"name": "Zepto", "match": ["zepto", "kiranakart"],
+         "careers": "https://www.zeptonow.com/careers"},
+        {"name": "Myntra", "match": ["myntra"],
+         "careers": "https://careers.myntra.com"},
+        {"name": "Urban Company", "match": ["urban company", "urbancompany", "urbanclap"],
+         "careers": "https://www.urbancompany.com/careers"},
+    ],
 }
 
 

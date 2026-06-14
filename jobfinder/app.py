@@ -109,6 +109,10 @@ def api_config():
         "onsite_cities": CONFIG["onsite_cities"],
         "max_age_days": CONFIG["max_age_days"],
         "require_local_eligibility": CONFIG["require_local_eligibility"],
+        "favorite_companies": [
+            {"name": c["name"], "careers": c.get("careers", "")}
+            for c in CONFIG.get("favorite_companies", [])
+        ],
     }
 
 

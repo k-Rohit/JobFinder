@@ -104,6 +104,9 @@
   .b-remote { background: rgba(52,211,153,.12); color: var(--green); }
   .b-onsite { background: rgba(251,191,36,.14); color: var(--amber); }
   .b-india { background: rgba(96,165,250,.14); color: var(--accent); }
+  .b-senior { background: rgba(148,163,184,.18); color: var(--muted); }
+  .b-fav { background: rgba(251,191,36,.18); color: var(--amber); }
+  .tab-fav.active { background: linear-gradient(135deg, #fbbf24, #f472b6); }
   .b-src { background: var(--bg2); color: var(--faint); border: 1px solid var(--border); }
 
   .skills { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 7px; }
@@ -219,6 +222,11 @@
     </div>
   </details>
 
+  <details class="panel quick" id="favLinksWrap" style="display:none">
+    <summary>⭐ Favourite companies — open their careers pages</summary>
+    <div class="body quick" id="favLinks"></div>
+  </details>
+
   <div class="tabs" id="roleTabs">
     <button class="tab active" data-role="">All roles</button>
   </div>
@@ -285,7 +293,21 @@ async function loadConfig() {
     b.className = "tab"; b.dataset.role = r.key; b.textContent = r.label;
     tabs.appendChild(b);
   });
+  if ((CFG.favorite_companies || []).length) {
+    const f = document.createElement("button");
+    f.className = "tab tab-fav"; f.dataset.role = "__fav__"; f.textContent = "⭐ Fav. companies";
+    tabs.appendChild(f);
+  }
   tabs.querySelectorAll(".tab").forEach(bindTab);
+
+  // favourite-company quick links
+  if ((CFG.favorite_companies || []).length) {
+    $("favLinksWrap").style.display = "";
+    $("favLinks").innerHTML = CFG.favorite_companies
+      .filter(c => c.careers)
+      .map(c => `<a target="_blank" href="${c.careers}">${esc(c.name)} careers ↗</a>`)
+      .join("");
+  }
 
   // header subline, filter label, India->country
   const cities = CFG.onsite_cities.length ? " + In office (" + CFG.onsite_cities.join(", ") + ")" : "";
@@ -343,7 +365,7 @@ function filtered() {
         exp = $("fExp").value, mode = $("fMode").value,
         src = $("fSource").value, st = $("fStatus").value;
   let out = ALL.filter(j =>
-    (!state.role || j.role === state.role) &&
+    (!state.role || (state.role === "__fav__" ? j.favorite : j.role === state.role)) &&
     (!exp || j.experience === exp) &&
     (!mode || (mode === "remote-india"
         ? (j.work_mode === "remote" && j.region === "local")
@@ -362,7 +384,7 @@ function esc(s) {
   return (s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 }
 
-const EXP_LABEL = { entry: "Entry / Fresher", junior: "≤ 1 yr", unspecified: "Exp. unspecified", stretch: "Stretch (2–3 yrs)" };
+const EXP_LABEL = { entry: "Entry / Fresher", junior: "≤ 1 yr", unspecified: "Exp. unspecified", stretch: "Stretch (2–3 yrs)", senior: "Senior" };
 
 function render() {
   const jobs = filtered();
@@ -404,6 +426,7 @@ function render() {
           <span class="badge b-${j.experience}">${EXP_LABEL[j.experience]}</span>
           <span class="badge b-${j.work_mode}">${j.work_mode}</span>
           ${j.work_mode === "remote" && j.region === "local" ? `<span class="badge b-india">📍 ${esc(CFG.country)}</span>` : ""}
+          ${j.favorite ? `<span class="badge b-fav">⭐ Fav company</span>` : ""}
           <span class="badge b-src">${esc(j.source)}</span>
         </div>
       </div>

@@ -95,6 +95,14 @@ docker compose restart
 | `onsite_cities` | Cities where hybrid/in-office jobs are kept (remote is global) | Bangalore, Hyderabad, Pune |
 | `country` + `require_local_eligibility` | Remote jobs must be open to this country; postings restricted elsewhere are dropped | India, true |
 | `max_age_days` | Only show postings newer than this | 7 |
+| `favorite_companies` | Companies tracked in the **⭐ Fav. companies** tab — fetched from their ATS board (Lever/Greenhouse) where available plus a company-targeted LinkedIn search | Meesho, Swiggy, Zomato, Blinkit, Zepto, Myntra, Urban Company |
+
+The **⭐ Fav. companies** tab tracks specific employers' DE/AI openings (using
+a broader role vocabulary — Data Scientist, Applied Scientist, SDE-Data, etc.
+— and showing senior roles too, since it's a company tracker). These bypass the
+freshness and onsite-city limits. Each company also gets a one-click careers
+link. Add a company with `{"name": "...", "match": ["..."], "lever": "token"}`
+(or `"greenhouse": "token"`).
 
 Changing `roles`, `country`, and `onsite_cities` automatically retargets the
 filters **and** the LinkedIn / JSearch / The Muse search queries. Set
