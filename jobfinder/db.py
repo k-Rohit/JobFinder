@@ -59,6 +59,8 @@ def init_db():
                 conn.execute(ddl)
             except sqlite3.OperationalError:
                 pass
+        # legacy rows used 'india' before the value was renamed to 'local'
+        conn.execute("UPDATE jobs SET region='local' WHERE region='india'")
 
 
 def upsert_jobs(jobs: list[dict]) -> int:

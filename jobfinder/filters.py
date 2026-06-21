@@ -94,10 +94,17 @@ def rebuild(cfg: dict | None = None) -> None:
                      for key, kws in cfg.get("favorite_role_keywords", {}).items()}
 
 
+# A location ending in a US state code ("San Francisco, CA") is location-bound.
+US_STATE_RE = re.compile(
+    r",\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|"
+    r"MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|"
+    r"WA|WV|WI|WY)\b")
+
+
 def hiring_region(location: str, description: str = "") -> str:
     """'home'   - explicitly open to / located in your country
-       'global' - worldwide or no stated restriction
-       'other'  - restricted to a region that excludes your country (drop)"""
+       'global' - worldwide / anywhere / plain remote (no place named)
+       'other'  - tied to a foreign place that excludes your country (drop)"""
     if not _REQUIRE_LOCAL:
         return "global"
     loc = location or ""
@@ -105,13 +112,19 @@ def hiring_region(location: str, description: str = "") -> str:
         return "home"
     if GLOBAL_REGION_RE.search(loc):
         return "global"
-    if EXCLUDED_REGION_RE.search(loc):
+    if EXCLUDED_REGION_RE.search(loc) or US_STATE_RE.search(loc):
         return "other"
     text = (description or "")[:2000]
     if RESIDENCY_RE.search(text):
         return "other"
     if HOME_REGION_RE.search(text):
         return "home"
+    # A location that names a specific (non-home, non-worldwide) place is
+    # usually location-bound; only treat bare "remote"/empty as truly global.
+    cleaned = re.sub(r"\b(remote|hybrid|on[\s-]?site|flexible|work from home|wfh)\b",
+                     "", loc, flags=re.I)
+    if re.search(r"[a-z]", cleaned, re.I):   # leftover place name -> foreign
+        return "other"
     return "global"
 
 
