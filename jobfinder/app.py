@@ -1,6 +1,7 @@
 """FastAPI server: REST API + dashboard + daily background refresh."""
 import json
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -10,7 +11,7 @@ from fastapi import Body, FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import db, fetchers, resume
+from . import config, db, fetchers, filters, resume
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 log = logging.getLogger("jobfinder")
@@ -102,18 +103,109 @@ def api_status():
 @app.get("/api/config")
 def api_config():
     """Profile info the dashboard needs to render (roles, country, freshness)."""
-    from .config import CONFIG
+    cfg = config.CONFIG
     return {
-        "roles": [{"key": r["key"], "label": r["label"]} for r in CONFIG["roles"]],
-        "country": CONFIG["country"],
-        "onsite_cities": CONFIG["onsite_cities"],
-        "max_age_days": CONFIG["max_age_days"],
-        "require_local_eligibility": CONFIG["require_local_eligibility"],
+        "roles": [{"key": r["key"], "label": r["label"]} for r in cfg["roles"]],
+        "country": cfg["country"],
+        "onsite_cities": cfg["onsite_cities"],
+        "max_age_days": cfg["max_age_days"],
+        "require_local_eligibility": cfg["require_local_eligibility"],
         "favorite_companies": [
             {"name": c["name"], "careers": c.get("careers", "")}
-            for c in CONFIG.get("favorite_companies", [])
+            for c in cfg.get("favorite_companies", [])
         ],
     }
+
+
+@app.get("/api/profile")
+def api_get_profile():
+    """Full editable search profile for the Settings editor."""
+    cfg = config.CONFIG
+    return {
+        "roles": [
+            {"label": r["label"],
+             "keywords": ", ".join(r.get("title_keywords", []))}
+            for r in cfg["roles"]
+        ],
+        "country": cfg["country"],
+        "onsite_cities": ", ".join(cfg["onsite_cities"]),
+        "comfortable_years": cfg["comfortable_years"],
+        "max_experience_years": cfg["max_experience_years"],
+        "max_age_days": cfg["max_age_days"],
+        "require_local_eligibility": cfg["require_local_eligibility"],
+        "favorite_companies": ", ".join(c["name"] for c in cfg.get("favorite_companies", [])),
+    }
+
+
+def _slug(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return s or "role"
+
+
+def _fav_entry(name: str) -> dict:
+    """Build a favourite-company entry, reusing known ATS tokens/careers links
+    from the defaults when the name matches one we already know."""
+    for d in config.DEFAULTS.get("favorite_companies", []):
+        if name.lower() in [m.lower() for m in d.get("match", [])] \
+                or name.lower() == d["name"].lower():
+            return d
+    return {"name": name, "match": [name.lower()],
+            "careers": f"https://www.google.com/search?q={name.replace(' ', '+')}+careers+data+engineer"}
+
+
+@app.post("/api/profile")
+def api_save_profile(payload: dict = Body(...)):
+    """Save the search profile from the editor and apply it live."""
+    raw_roles = payload.get("roles") or []
+    roles = []
+    seen = set()
+    for r in raw_roles:
+        label = (r.get("label") or "").strip()
+        kws = [k.strip() for k in re.split(r"[,\n]", r.get("keywords") or "") if k.strip()]
+        if not label or not kws:
+            continue
+        key = _slug(label)
+        while key in seen:
+            key += "-x"
+        seen.add(key)
+        roles.append({"key": key, "label": label, "title_keywords": kws,
+                      "search_terms": kws[:2]})
+    if not roles:
+        raise HTTPException(400, "Add at least one role with a label and keywords.")
+
+    country = (payload.get("country") or "").strip() or "Worldwide"
+    cities = [c.strip() for c in re.split(r"[,\n]", payload.get("onsite_cities") or "") if c.strip()]
+    favs = [c.strip() for c in re.split(r"[,\n]", payload.get("favorite_companies") or "") if c.strip()]
+
+    def _int(v, default):
+        try:
+            return max(0, int(v))
+        except (TypeError, ValueError):
+            return default
+
+    # Keep region eligibility sensible for whatever country is chosen.
+    home = list(dict.fromkeys(
+        [country.lower()] + [c.lower() for c in cities] + ["apac", "asia"]))
+    excluded = [t for t in config.DEFAULTS["excluded_terms"]
+                if t != country.lower() and t not in home]
+
+    updates = {
+        "roles": roles,
+        "country": country,
+        "onsite_cities": cities,
+        "comfortable_years": _int(payload.get("comfortable_years"), 1),
+        "max_experience_years": _int(payload.get("max_experience_years"), 3),
+        "max_age_days": _int(payload.get("max_age_days"), 7),
+        "require_local_eligibility": bool(payload.get("require_local_eligibility", True)),
+        "home_terms": home,
+        "excluded_terms": excluded,
+        "favorite_companies": [_fav_entry(n) for n in favs]
+        if favs else config.CONFIG.get("favorite_companies", []),
+    }
+    new_cfg = config.save(updates)
+    filters.rebuild(new_cfg)
+    fetchers.rebuild(new_cfg)
+    return {"ok": True, "roles": [r["label"] for r in roles]}
 
 
 @app.post("/api/jobs/status")

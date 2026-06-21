@@ -22,18 +22,20 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from . import db, filters
-from .config import CONFIG
+from . import config, db, filters
 
 log = logging.getLogger("jobfinder.fetch")
 
 UA = {"User-Agent": "JobFinder/1.0 (personal job dashboard)"}
 TIMEOUT = 30
-MAX_AGE_DAYS = int(CONFIG["max_age_days"])  # only show recent postings
-COUNTRY = CONFIG["country"]
-ONSITE_CITIES = CONFIG["onsite_cities"]
-# flat list of every role search term, for board search APIs
-SEARCH_TERMS = [t for r in CONFIG["roles"] for t in r.get("search_terms", [])]
+
+# Profile-derived constants — (re)built by rebuild() at import and on save.
+MAX_AGE_DAYS = 7
+COUNTRY = ""
+ONSITE_CITIES = []
+SEARCH_TERMS = []
+LI_QUERIES = []
+JSEARCH_QUERIES = []
 
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -450,7 +452,7 @@ _LI_DESC_RE = re.compile(r'show-more-less-html__markup[^>]*>(.*?)</div>', re.S)
 # Built per role: worldwide-remote + country-remote + country-office.
 def _build_li_queries() -> list[tuple[str, str, str]]:
     q = []
-    for role in CONFIG["roles"]:
+    for role in config.CONFIG["roles"]:
         term = (role.get("search_terms") or [role["label"]])[0]
         q.append((term, "Worldwide", "2"))
         q.append((term, COUNTRY, "2"))
@@ -458,7 +460,6 @@ def _build_li_queries() -> list[tuple[str, str, str]]:
     return q
 
 
-LI_QUERIES = _build_li_queries()
 LI_DETAIL_CAP = 30  # full-description fetches per refresh, keep volume polite
 
 
@@ -547,7 +548,21 @@ def _build_jsearch_queries() -> list[tuple[str, str, bool]]:
     return q
 
 
-JSEARCH_QUERIES = _build_jsearch_queries()
+def rebuild(cfg: dict | None = None) -> None:
+    """(Re)compute profile-derived fetch constants. Called at import and again
+    whenever the user saves a new search profile."""
+    cfg = cfg or config.CONFIG
+    global MAX_AGE_DAYS, COUNTRY, ONSITE_CITIES, SEARCH_TERMS
+    global LI_QUERIES, JSEARCH_QUERIES
+    MAX_AGE_DAYS = int(cfg["max_age_days"])
+    COUNTRY = cfg["country"]
+    ONSITE_CITIES = cfg["onsite_cities"]
+    SEARCH_TERMS = [t for r in cfg["roles"] for t in r.get("search_terms", [])]
+    LI_QUERIES = _build_li_queries()
+    JSEARCH_QUERIES = _build_jsearch_queries()
+
+
+rebuild()
 
 
 def fetch_jsearch() -> list[dict]:
