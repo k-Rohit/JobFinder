@@ -101,30 +101,31 @@ US_STATE_RE = re.compile(
     r"WA|WV|WI|WY)\b")
 
 
+# An explicit "<region> only" restriction (e.g. "USA Only", "US-only", "EU only")
+_ONLY_RE = re.compile(r"\bonly\b", re.I)
+
+
 def hiring_region(location: str, description: str = "") -> str:
-    """'home'   - explicitly open to / located in your country
-       'global' - worldwide / anywhere / plain remote (no place named)
-       'other'  - tied to a foreign place that excludes your country (drop)"""
+    """Who can take this remote job?
+       'home'   - mentions your country (location or description)
+       'other'  - EXPLICITLY excludes your country (US-only, residency required) -> drop
+       'global' - everything else (worldwide, or a foreign company hiring openly)
+
+    Inclusive by default: a US/EU company's remote role is kept (badged 🌐)
+    unless it clearly restricts to a region that rules your country out. Use the
+    "Remote · <country> only" filter for the strict view."""
     if not _REQUIRE_LOCAL:
         return "global"
     loc = location or ""
-    if HOME_REGION_RE.search(loc):
-        return "home"
-    if GLOBAL_REGION_RE.search(loc):
-        return "global"
-    if EXCLUDED_REGION_RE.search(loc) or US_STATE_RE.search(loc):
-        return "other"
     text = (description or "")[:2000]
+    if HOME_REGION_RE.search(loc) or HOME_REGION_RE.search(text):
+        return "home"
+    # explicit exclusions only — keep foreign-company roles otherwise
     if RESIDENCY_RE.search(text):
         return "other"
-    if HOME_REGION_RE.search(text):
-        return "home"
-    # A location that names a specific (non-home, non-worldwide) place is
-    # usually location-bound; only treat bare "remote"/empty as truly global.
-    cleaned = re.sub(r"\b(remote|hybrid|on[\s-]?site|flexible|work from home|wfh)\b",
-                     "", loc, flags=re.I)
-    if re.search(r"[a-z]", cleaned, re.I):   # leftover place name -> foreign
-        return "other"
+    if _ONLY_RE.search(loc) and (EXCLUDED_REGION_RE.search(loc)
+                                 or US_STATE_RE.search(loc)):
+        return "other"   # e.g. "USA Only", "Europe only", "Remote - EU only"
     return "global"
 
 
