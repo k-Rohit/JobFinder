@@ -73,7 +73,15 @@ launchctl load ~/Library/LaunchAgents/com.jobfinder.portal.plist
 
 ## Customizing your search
 
-All profile settings live in one file. Copy the example and edit it:
+**Easiest — in the dashboard:** open **🎯 Search profile** at the top of the
+page. Add/rename roles (e.g. type "Data Analyst" with keywords
+`data analyst, bi analyst`), set your country, office cities, max experience,
+freshness, and favourite companies, then click **💾 Save profile**. It applies
+immediately (hit ⟳ Refresh now for fresh results) — no files, no restart.
+
+**Advanced — config file:** the same settings live in `config.json`, with a few
+extra knobs (region term lists, per-role search terms, ATS tokens). Copy the
+example and edit it:
 
 ```sh
 cp config.example.json config.json   # then edit config.json
