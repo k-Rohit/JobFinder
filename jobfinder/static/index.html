@@ -65,6 +65,14 @@
   .settings label { min-width: 150px; font-weight: 550; font-size: .95rem; }
   .settings input[type=password], .settings input[type=file] { flex: 1; min-width: 240px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 9px 14px; color: var(--text); font-size: .9rem; }
   .hint { color: var(--muted); font-size: .85rem; }
+  .prow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .prow label { min-width: 200px; font-weight: 550; font-size: .9rem; }
+  .prow input[type=text], .prow input[type=number] { flex: 1; min-width: 200px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 9px 14px; color: var(--text); font-size: .9rem; }
+  .role-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .role-row input { background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 9px 14px; color: var(--text); font-size: .9rem; }
+  .role-row .r-label { min-width: 150px; }
+  .role-row .r-kw { flex: 1; min-width: 240px; }
+  .role-row .r-del { cursor: pointer; border: 1px solid rgba(248,113,113,.5); background: var(--panel); color: var(--red); border-radius: 10px; padding: 9px 13px; }
   .ok { color: var(--green); } .warn { color: var(--amber); }
 
   /* ---------- filters ---------- */
@@ -196,6 +204,34 @@
       <a target="_blank" href="https://www.toptal.com/freelance-jobs">Toptal · Freelance</a>
       <a target="_blank" href="https://www.freelancer.com/jobs/machine-learning">Freelancer · ML gigs</a>
       <a target="_blank" href="https://www.outsourcely.com/remote-workers">Outsourcely</a>
+    </div>
+  </details>
+
+  <details class="panel settings" id="profileBox">
+    <summary>🎯 Search profile — what jobs to look for</summary>
+    <div class="body">
+      <p class="hint" style="margin-bottom:6px">Change what this portal hunts for — e.g. add or switch to <b>Data Analyst</b>. Saves instantly; hit “Refresh now” after to pull fresh results.</p>
+      <div style="margin:6px 0 2px"><b style="font-size:.9rem">Roles to look for</b></div>
+      <div id="roleEditor"></div>
+      <button onclick="addRoleRow()" style="margin-top:6px">+ Add role</button>
+
+      <div class="prow"><label>🌍 Country (remote eligibility)</label>
+        <input type="text" id="pCountry" placeholder="India"></div>
+      <div class="prow"><label>🏢 Office cities</label>
+        <input type="text" id="pCities" placeholder="Bangalore, Hyderabad, Pune"></div>
+      <div class="prow"><label>📅 Max age (days)</label>
+        <input type="number" id="pAge" min="1" max="90" style="max-width:110px"></div>
+      <div class="prow"><label>🧑‍💼 Max experience (yrs)</label>
+        <input type="number" id="pMaxExp" min="0" max="20" style="max-width:110px">
+        <span class="hint">jobs asking more than this are dropped</span></div>
+      <div class="prow"><label>⭐ Favourite companies</label>
+        <input type="text" id="pFavs" placeholder="Meesho, Swiggy, Zomato, …"></div>
+      <div class="prow"><label><input type="checkbox" id="pLocal" style="width:auto;min-width:0"> Only remote jobs open to my country</label></div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="primary" onclick="saveProfile()">💾 Save profile</button>
+        <span class="hint" id="profileStatus"></span>
+      </div>
     </div>
   </details>
 
@@ -444,6 +480,63 @@ function render() {
     </div>`).join("");
 }
 
+// ---------------------------------------------------------- search profile
+function addRoleRow(label = "", keywords = "") {
+  const row = document.createElement("div");
+  row.className = "role-row";
+  row.innerHTML = `
+    <input class="r-label" placeholder="Role label (e.g. Data Analyst)" value="${esc(label)}">
+    <input class="r-kw" placeholder="title keywords, comma-separated (e.g. data analyst, bi analyst)" value="${esc(keywords)}">
+    <button class="r-del" title="Remove role" onclick="this.parentElement.remove()">✕</button>`;
+  $("roleEditor").appendChild(row);
+}
+
+async function loadProfile() {
+  const p = await (await fetch("/api/profile")).json();
+  $("roleEditor").innerHTML = "";
+  (p.roles || []).forEach(r => addRoleRow(r.label, r.keywords));
+  if (!p.roles || !p.roles.length) addRoleRow();
+  $("pCountry").value = p.country || "";
+  $("pCities").value = p.onsite_cities || "";
+  $("pAge").value = p.max_age_days ?? 7;
+  $("pMaxExp").value = p.max_experience_years ?? 3;
+  $("pFavs").value = p.favorite_companies || "";
+  $("pLocal").checked = !!p.require_local_eligibility;
+}
+
+async function saveProfile() {
+  const roles = [...document.querySelectorAll("#roleEditor .role-row")].map(row => ({
+    label: row.querySelector(".r-label").value,
+    keywords: row.querySelector(".r-kw").value,
+  })).filter(r => r.label.trim() && r.keywords.trim());
+  if (!roles.length) return alert("Add at least one role with a label and keywords.");
+  const body = {
+    roles,
+    country: $("pCountry").value,
+    onsite_cities: $("pCities").value,
+    max_age_days: $("pAge").value,
+    max_experience_years: $("pMaxExp").value,
+    favorite_companies: $("pFavs").value,
+    require_local_eligibility: $("pLocal").checked,
+  };
+  const st = $("profileStatus");
+  st.textContent = "Saving…"; st.className = "hint";
+  const r = await fetch("/api/profile", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    st.textContent = "⚠ " + ((await r.json()).detail || "Save failed");
+    st.className = "hint warn"; return;
+  }
+  const res = await r.json();
+  st.textContent = "✓ Saved: " + res.roles.join(", ") + ". Reloading…";
+  st.className = "hint ok";
+  await loadConfig();           // refresh tabs/labels
+  await load();                 // re-render with new role tags
+  setTimeout(() => { st.textContent += " Hit ⟳ Refresh now for fresh results."; }, 300);
+}
+
 async function setStatus(id, status) {
   const r = await fetch("/api/jobs/status", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -602,6 +695,7 @@ bindTab($("roleTabs").querySelector(".tab"));  // the "All roles" tab
 
 loadConfig().then(load);
 loadSettings();
+loadProfile();
 </script>
 </body>
 </html>

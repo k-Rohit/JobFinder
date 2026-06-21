@@ -170,3 +170,27 @@ def load() -> dict:
 
 
 CONFIG = load()
+
+
+def reload() -> dict:
+    """Re-read config.json into the live CONFIG dict."""
+    global CONFIG
+    CONFIG = load()
+    return CONFIG
+
+
+def save(updates: dict) -> dict:
+    """Merge `updates` into the user's config.json, persist, and reload.
+    Only the provided keys are changed; everything else keeps its value."""
+    path = _config_path()
+    current = {}
+    if path.exists():
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            current = {}
+    current.update(updates)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(current, indent=2), encoding="utf-8")
+    log.info("saved config to %s", path)
+    return reload()

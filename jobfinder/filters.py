@@ -5,7 +5,7 @@ app can be retargeted to other roles / countries by editing config.json.
 """
 import re
 
-from .config import CONFIG
+from . import config
 
 
 def _kw_to_pattern(keyword: str) -> str:
@@ -35,57 +35,63 @@ def _exp_re(lo: int, hi: int) -> re.Pattern:
     )
 
 
-# ---------------------------------------------------------------- role match
-# {role_key: compiled title matcher}
-_ROLE_RES = {r["key"]: _kw_alt(r["title_keywords"]) for r in CONFIG["roles"]}
-ROLE_LABELS = {r["key"]: r["label"] for r in CONFIG["roles"]}
-
-# Split the title exclusions: "senior" markers vs "not an IC engineer" markers.
-# Non-favourite roles drop on either; favourite-company roles keep senior ones
-# (labelled "senior") and only drop true non-IC titles.
-_SENIOR_WORDS = {"senior", "sr", "sr.", "staff", "principal", "lead", "architect",
-                 "iii", "iv", "ii"}
-_excl = CONFIG["exclude_title_keywords"]
-SENIOR_TITLE = _kw_alt([w for w in _excl if w.lower() in _SENIOR_WORDS]
-                       or ["senior"])
-NON_IC_TITLE = _kw_alt([w for w in _excl if w.lower() not in _SENIOR_WORDS]
-                       or ["manager"])
-EXCLUDE_TITLE = _kw_alt(_excl)  # senior + non-IC (used for non-favourites)
-
+# Config-independent matchers (never change with the search profile).
 ENTRY_HINTS = re.compile(
     r"\b(entry[\s-]?level|junior|jr\.?|graduate|grad|fresher|early[\s-]?career|"
     r"associate|intern(ship)?|trainee|new\s+grad|campus|apprentice)\b",
     re.I,
 )
-
-_COMFORT = int(CONFIG["comfortable_years"])
-_MAX_EXP = int(CONFIG["max_experience_years"])
-# Experience demands that rule a job out (more than max_experience_years).
-TOO_SENIOR_EXP = _exp_re(_MAX_EXP + 1, 40)
-# Between comfortable and max: a stretch, but worth applying to.
-STRETCH_EXP = _exp_re(_COMFORT + 1, _MAX_EXP)
 OK_EXP = re.compile(
     r"\b(0|1|one|zero)\s*[-–to]*\s*[12]?\s*(?:years?|yrs?)\b|\bno\s+experience\b",
     re.I,
 )
-
 HYBRID_RE = re.compile(r"\bhybrid\b", re.I)
 
-# Onsite/hybrid jobs are only useful in the user's cities; remote can be global
-ONSITE_CITIES = _kw_alt(CONFIG["onsite_cities"])
-INDIA_HUBS = ONSITE_CITIES  # backwards-compatible alias
+# "senior" markers vs "not an IC engineer" markers (see rebuild()).
+_SENIOR_WORDS = {"senior", "sr", "sr.", "staff", "principal", "lead", "architect",
+                 "iii", "iv", "ii"}
 
-# ------------------------------------------------- who can the job hire?
-_REQUIRE_LOCAL = bool(CONFIG["require_local_eligibility"])
-HOME_REGION_RE = _kw_alt(CONFIG["home_terms"])
-GLOBAL_REGION_RE = _kw_alt(CONFIG["global_terms"])
-EXCLUDED_REGION_RE = _kw_alt(CONFIG["excluded_terms"])
-RESIDENCY_RE = re.compile(
-    r"(?:located|based|residing|live|reside|eligible\s+to\s+work|"
-    r"authorized\s+to\s+work)\s+in\s+(?:the\s+)?(?:"
-    + "|".join(re.escape(t) for t in CONFIG["residency_exclude_terms"]) + r")\b",
-    re.I,
-)
+
+def rebuild(cfg: dict | None = None) -> None:
+    """(Re)compute every profile-derived matcher from the active config.
+    Called at import and again whenever the user saves a new search profile."""
+    cfg = cfg or config.CONFIG
+    global _ROLE_RES, ROLE_LABELS, SENIOR_TITLE, NON_IC_TITLE, EXCLUDE_TITLE
+    global _COMFORT, _MAX_EXP, TOO_SENIOR_EXP, STRETCH_EXP
+    global ONSITE_CITIES, INDIA_HUBS, _REQUIRE_LOCAL
+    global HOME_REGION_RE, GLOBAL_REGION_RE, EXCLUDED_REGION_RE, RESIDENCY_RE
+    global _FAV, _FAV_ALIASES, _FAV_ROLE_RES
+
+    _ROLE_RES = {r["key"]: _kw_alt(r["title_keywords"]) for r in cfg["roles"]}
+    ROLE_LABELS = {r["key"]: r["label"] for r in cfg["roles"]}
+
+    excl = cfg["exclude_title_keywords"]
+    SENIOR_TITLE = _kw_alt([w for w in excl if w.lower() in _SENIOR_WORDS] or ["senior"])
+    NON_IC_TITLE = _kw_alt([w for w in excl if w.lower() not in _SENIOR_WORDS] or ["manager"])
+    EXCLUDE_TITLE = _kw_alt(excl)  # senior + non-IC (used for non-favourites)
+
+    _COMFORT = int(cfg["comfortable_years"])
+    _MAX_EXP = int(cfg["max_experience_years"])
+    TOO_SENIOR_EXP = _exp_re(_MAX_EXP + 1, 40)
+    STRETCH_EXP = _exp_re(_COMFORT + 1, _MAX_EXP)
+
+    ONSITE_CITIES = _kw_alt(cfg["onsite_cities"] or ["__no_city__"])
+    INDIA_HUBS = ONSITE_CITIES  # backwards-compatible alias
+
+    _REQUIRE_LOCAL = bool(cfg["require_local_eligibility"])
+    HOME_REGION_RE = _kw_alt(cfg["home_terms"] or ["__none__"])
+    GLOBAL_REGION_RE = _kw_alt(cfg["global_terms"] or ["__none__"])
+    EXCLUDED_REGION_RE = _kw_alt(cfg["excluded_terms"] or ["__none__"])
+    RESIDENCY_RE = re.compile(
+        r"(?:located|based|residing|live|reside|eligible\s+to\s+work|"
+        r"authorized\s+to\s+work)\s+in\s+(?:the\s+)?(?:"
+        + "|".join(re.escape(t) for t in (cfg["residency_exclude_terms"] or ["__none__"]))
+        + r")\b", re.I)
+
+    _FAV = cfg.get("favorite_companies", [])
+    _FAV_ALIASES = {a.lower(): c["name"] for c in _FAV for a in c.get("match", [])}
+    _FAV_ROLE_RES = {key: _kw_alt(kws)
+                     for key, kws in cfg.get("favorite_role_keywords", {}).items()}
 
 
 def hiring_region(location: str, description: str = "") -> str:
@@ -163,10 +169,7 @@ _SKILL_RES = {name: re.compile(pat, re.I) for name, pat in SKILLS.items()}
 
 
 # ------------------------------------------------- favourite companies
-_FAV = CONFIG.get("favorite_companies", [])
-# alias (lowercased) -> canonical company name
-_FAV_ALIASES = {a.lower(): c["name"] for c in _FAV for a in c.get("match", [])}
-
+# _FAV, _FAV_ALIASES and _FAV_ROLE_RES are populated by rebuild().
 
 def match_favorite(company: str) -> str | None:
     """Return the canonical favourite-company name if `company` is one, else None."""
@@ -175,13 +178,6 @@ def match_favorite(company: str) -> str | None:
         if alias in c:
             return name
     return None
-
-
-# Broader role matcher for favourite-company postings (Data Scientist, etc.)
-_FAV_ROLE_RES = {
-    key: _kw_alt(kws)
-    for key, kws in CONFIG.get("favorite_role_keywords", {}).items()
-}
 
 
 def match_favorite_role(title: str) -> str | None:
@@ -262,3 +258,6 @@ def fit_score(experience: str, skills: list[str], role: str) -> int:
     if role:
         score += 10
     return min(score, 100)
+
+
+rebuild()  # populate all profile-derived matchers from the active config
