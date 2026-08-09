@@ -25,6 +25,7 @@ VOLUME ["/data"]
 EXPOSE 8787
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/api/status')" || exit 1
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8787')+'/api/status')" || exit 1
 
-CMD ["uvicorn", "jobfinder.app:app", "--host", "0.0.0.0", "--port", "8787"]
+# Honour $PORT (Railway/Render/Fly inject it); default 8787 locally.
+CMD ["sh", "-c", "uvicorn jobfinder.app:app --host 0.0.0.0 --port ${PORT:-8787}"]

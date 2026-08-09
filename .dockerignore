@@ -10,4 +10,6 @@ com.jobfinder.portal.plist
 run.sh
 .DS_Store
 /tmp/
+frontend/
+node_modules/
 

@@ -1,6 +1,7 @@
 """FastAPI server: REST API + dashboard + daily background refresh."""
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -8,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -20,6 +22,18 @@ REFRESH_INTERVAL_HOURS = 24
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="JobFinder")
+
+# Allow the separately-hosted frontend (Vercel/local dev) to call this API.
+# Set CORS_ORIGINS to a comma-separated allowlist in production; defaults to "*".
+_origins = os.environ.get("CORS_ORIGINS", "*")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _origins.strip() == "*"
+    else [o.strip() for o in _origins.split(",") if o.strip()],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 _refresh_lock = threading.Lock()
 _progress = {"running": False, "current": "", "done": 0, "total": 0}
 
