@@ -1,7 +1,3 @@
-export function cx(...parts: (string | false | null | undefined)[]): string {
-  return parts.filter(Boolean).join(" ");
-}
-
 export function relTime(iso: string): string {
   if (!iso) return "date unknown";
   const days = Math.floor((Date.now() - new Date(iso + "Z").getTime()) / 864e5);
@@ -20,18 +16,21 @@ export const EXP_LABEL: Record<string, string> = {
   senior: "Senior",
 };
 
-// deterministic accent per role index
-export const ROLE_ACCENTS = [
-  "var(--accent)",
-  "var(--violet)",
-  "var(--green)",
-  "var(--amber)",
-  "var(--magenta)",
-  "var(--red)",
+// deterministic accent var per role index
+export const ROLE_VARS = [
+  "var(--role-1)",
+  "var(--role-2)",
+  "var(--role-3)",
+  "var(--role-4)",
+  "var(--role-5)",
 ];
 
-export function fitColor(score: number): string {
-  if (score >= 60) return "var(--green)";
-  if (score >= 40) return "var(--amber)";
-  return "var(--muted)";
+export function roleVar(i: number): string {
+  return ROLE_VARS[((i % ROLE_VARS.length) + ROLE_VARS.length) % ROLE_VARS.length];
+}
+
+export function fitTone(score: number): string {
+  if (score >= 60) return "var(--success)";
+  if (score >= 40) return "var(--warning)";
+  return "var(--muted-foreground)";
 }

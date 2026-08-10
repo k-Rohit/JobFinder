@@ -1,27 +1,38 @@
 "use client";
-import { Plus, Save, Target, Trash2 } from "lucide-react";
+import { Ban, Briefcase, CalendarClock, Globe, type LucideIcon, Plus, Save, Star, Target, Trash2, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { api } from "@/lib/api";
 import type { ProfileRole } from "@/lib/types";
-import { Button, Drawer, Field, inputCls } from "./ui";
 
 export function ProfileDrawer({
   open,
-  onClose,
+  onOpenChange,
   onSaved,
 }: {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (v: boolean) => void;
   onSaved: () => void;
 }) {
   const [roles, setRoles] = useState<ProfileRole[]>([]);
   const [country, setCountry] = useState("");
   const [cities, setCities] = useState("");
+  const [exclude, setExclude] = useState("");
   const [age, setAge] = useState(7);
   const [maxExp, setMaxExp] = useState(3);
   const [favs, setFavs] = useState("");
   const [local, setLocal] = useState(true);
-  const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -31,11 +42,11 @@ export function ProfileDrawer({
       setRoles(p.roles.length ? p.roles : [{ label: "", keywords: "" }]);
       setCountry(p.country);
       setCities(p.onsite_cities);
+      setExclude(p.exclude_locations || "");
       setAge(p.max_age_days);
       setMaxExp(p.max_experience_years);
       setFavs(p.favorite_companies);
       setLocal(p.require_local_eligibility);
-      setStatus(null);
     })();
   }, [open]);
 
@@ -44,109 +55,107 @@ export function ProfileDrawer({
 
   const save = async () => {
     const clean = roles.filter((r) => r.label.trim() && r.keywords.trim());
-    if (!clean.length) {
-      setStatus({ msg: "Add at least one role with a label and keywords.", ok: false });
-      return;
-    }
+    if (!clean.length) return toast.error("Add at least one role with a label and keywords.");
     setSaving(true);
-    setStatus({ msg: "Saving…", ok: true });
     try {
       const res = await api.saveProfile({
         roles: clean,
         country,
         onsite_cities: cities,
+        exclude_locations: exclude,
         max_age_days: age,
         max_experience_years: maxExp,
         favorite_companies: favs,
         require_local_eligibility: local,
       });
-      setStatus({ msg: `Saved: ${res.roles.join(", ")}. Hit Refresh for fresh results.`, ok: true });
+      toast.success(`Saved: ${res.roles.join(", ")}`, { description: "Hit Refresh to pull fresh results." });
       onSaved();
+      onOpenChange(false);
     } catch (e) {
-      setStatus({ msg: (e as Error).message, ok: false });
+      toast.error((e as Error).message);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title="Search profile" subtitle="What jobs this portal hunts for">
-      <div className="space-y-6">
-        <p className="rounded-xl border bg-surface-2 px-4 py-3 text-[13px] leading-relaxed text-muted">
-          Change what&apos;s tracked — e.g. add <b className="text-ink-soft">Data Analyst</b>. Saves instantly; hit
-          Refresh afterwards to pull fresh results.
-        </p>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>Search profile</SheetTitle>
+          <SheetDescription>What jobs this portal hunts for</SheetDescription>
+        </SheetHeader>
 
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
-            <Target size={15} /> Roles to look for
+        <div className="space-y-6 px-4 pb-8">
+          <div>
+            <Label className="flex items-center gap-2 text-sm">
+              <Target className="size-4" /> Roles to look for
+            </Label>
+            <div className="mt-2 space-y-2">
+              {roles.map((r, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input className="max-w-[40%]" placeholder="Data Analyst" value={r.label}
+                    onChange={(e) => setRole(i, { label: e.target.value })} />
+                  <Input placeholder="keywords: data analyst, bi analyst" value={r.keywords}
+                    onChange={(e) => setRole(i, { keywords: e.target.value })} />
+                  <Button size="icon" variant="ghost" className="size-9 shrink-0 text-destructive"
+                    onClick={() => setRoles((rs) => rs.filter((_, j) => j !== i))}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="secondary" className="mt-2 gap-1.5"
+              onClick={() => setRoles((r) => [...r, { label: "", keywords: "" }])}>
+              <Plus className="size-4" /> Add role
+            </Button>
           </div>
-          <div className="space-y-2">
-            {roles.map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  className={inputCls + " max-w-[42%]"}
-                  placeholder="Label (Data Analyst)"
-                  value={r.label}
-                  onChange={(e) => setRole(i, { label: e.target.value })}
-                />
-                <input
-                  className={inputCls}
-                  placeholder="keywords: data analyst, bi analyst"
-                  value={r.keywords}
-                  onChange={(e) => setRole(i, { keywords: e.target.value })}
-                />
-                <button
-                  onClick={() => setRoles((rs) => rs.filter((_, j) => j !== i))}
-                  className="rounded-lg border p-2 text-[var(--red)] transition hover:bg-[color-mix(in_srgb,var(--red)_10%,transparent)]"
-                  aria-label="Remove role"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
+
+          <div className="grid grid-cols-2 gap-4">
+            <FieldInput icon={Globe} label="Country" value={country} onChange={setCountry} placeholder="India" />
+            <FieldInput icon={Briefcase} label="Office cities" value={cities} onChange={setCities} placeholder="Bangalore, Pune" />
+            <FieldInput icon={Ban} label="Exclude locations" value={exclude} onChange={setExclude} placeholder="Chennai, Noida" />
+            <div className="grid grid-cols-2 gap-3">
+              <FieldNum icon={CalendarClock} label="Max age" value={age} onChange={setAge} />
+              <FieldNum icon={UserRound} label="Max yrs" value={maxExp} onChange={setMaxExp} />
+            </div>
           </div>
-          <Button variant="soft" className="mt-2" onClick={() => setRoles((r) => [...r, { label: "", keywords: "" }])}>
-            <Plus size={15} /> Add role
+
+          <FieldInput icon={Star} label="Favourite companies" value={favs} onChange={setFavs} placeholder="Meesho, Swiggy, Zomato" />
+
+          <div className="flex items-center justify-between rounded-xl border bg-muted/30 px-3.5 py-3">
+            <Label htmlFor="local" className="text-sm">Only remote jobs open to my country</Label>
+            <Switch id="local" checked={local} onCheckedChange={setLocal} />
+          </div>
+
+          <Button onClick={save} disabled={saving} className="w-full gap-2">
+            <Save className="size-4" /> Save profile
           </Button>
         </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="🌍 Country (remote eligibility)">
-            <input className={inputCls} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="India" />
-          </Field>
-          <Field label="🏢 Office cities">
-            <input className={inputCls} value={cities} onChange={(e) => setCities(e.target.value)} placeholder="Bangalore, Pune" />
-          </Field>
-          <Field label="📅 Max age (days)">
-            <input className={inputCls} type="number" min={1} max={90} value={age} onChange={(e) => setAge(+e.target.value)} />
-          </Field>
-          <Field label="🧑‍💼 Max experience (yrs)">
-            <input className={inputCls} type="number" min={0} max={20} value={maxExp} onChange={(e) => setMaxExp(+e.target.value)} />
-          </Field>
-        </div>
-
-        <Field label="⭐ Favourite companies">
-          <input className={inputCls} value={favs} onChange={(e) => setFavs(e.target.value)} placeholder="Meesho, Swiggy, Zomato, …" />
-        </Field>
-
-        <label className="flex items-center gap-2.5 text-sm font-medium text-ink-soft">
-          <input type="checkbox" checked={local} onChange={(e) => setLocal(e.target.checked)}
-            className="h-4 w-4 accent-[var(--accent)]" />
-          Only show remote jobs open to my country
-        </label>
-
-        <div className="flex items-center gap-3 border-t pt-4">
-          <Button variant="primary" onClick={save} disabled={saving}>
-            <Save size={15} /> Save profile
-          </Button>
-          {status && (
-            <span className="text-sm" style={{ color: status.ok ? "var(--green)" : "var(--amber)" }}>
-              {status.msg}
-            </span>
-          )}
-        </div>
-      </div>
-    </Drawer>
+function FieldInput({ icon: Icon, label, value, onChange, placeholder }: {
+  icon: LucideIcon; label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="size-3.5" /> {label}
+      </Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+function FieldNum({ icon: Icon, label, value, onChange }: { icon: LucideIcon; label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="size-3.5" /> {label}
+      </Label>
+      <Input type="number" value={value} onChange={(e) => onChange(+e.target.value)} />
+    </div>
   );
 }

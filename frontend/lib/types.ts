@@ -81,6 +81,7 @@ export interface Profile {
   roles: ProfileRole[];
   country: string;
   onsite_cities: string;
+  exclude_locations: string;
   comfortable_years: number;
   max_experience_years: number;
   max_age_days: number;
