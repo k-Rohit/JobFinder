@@ -115,11 +115,12 @@ def get_meta(key: str) -> str | None:
 
 
 def prune_old(days: int = 7):
-    """Drop postings older than a week unless the user saved/applied.
+    """Drop postings older than a week unless the user saved/applied, or the
+    job is at a favourite company (those are tracked regardless of age).
     Jobs without a posting date age out by fetch date instead."""
     with _lock, get_conn() as conn:
         conn.execute(
-            "DELETE FROM jobs WHERE status IN ('new','hidden') AND ("
+            "DELETE FROM jobs WHERE status IN ('new','hidden') AND favorite = 0 AND ("
             "  (posted_at != '' AND date(posted_at) < date('now', ?))"
             "  OR (posted_at = '' AND fetched_at < datetime('now', ?)))",
             (f"-{days} days", f"-{days} days"),

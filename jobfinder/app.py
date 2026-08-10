@@ -13,7 +13,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, fetchers, filters, resume
+
+def _load_env() -> None:
+    """Load KEY=VALUE lines from a local .env into the environment (for
+    ./run.sh). Real env vars (Railway/Docker) win — we only setdefault."""
+    root = Path(__file__).resolve().parent.parent
+    for p in (root / ".env", Path.cwd() / ".env"):
+        if not p.exists():
+            continue
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_env()
+
+from . import config, db, fetchers, filters, resume  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 log = logging.getLogger("jobfinder")
@@ -143,6 +161,7 @@ def api_get_profile():
         ],
         "country": cfg["country"],
         "onsite_cities": ", ".join(cfg["onsite_cities"]),
+        "exclude_locations": ", ".join(cfg.get("exclude_locations", [])),
         "comfortable_years": cfg["comfortable_years"],
         "max_experience_years": cfg["max_experience_years"],
         "max_age_days": cfg["max_age_days"],
@@ -190,6 +209,7 @@ def api_save_profile(payload: dict = Body(...)):
     country = (payload.get("country") or "").strip() or "Worldwide"
     cities = [c.strip() for c in re.split(r"[,\n]", payload.get("onsite_cities") or "") if c.strip()]
     favs = [c.strip() for c in re.split(r"[,\n]", payload.get("favorite_companies") or "") if c.strip()]
+    excl_loc = [c.strip() for c in re.split(r"[,\n]", payload.get("exclude_locations") or "") if c.strip()]
 
     def _int(v, default):
         try:
@@ -207,6 +227,7 @@ def api_save_profile(payload: dict = Body(...)):
         "roles": roles,
         "country": country,
         "onsite_cities": cities,
+        "exclude_locations": excl_loc,
         "comfortable_years": _int(payload.get("comfortable_years"), 1),
         "max_experience_years": _int(payload.get("max_experience_years"), 3),
         "max_age_days": _int(payload.get("max_age_days"), 7),

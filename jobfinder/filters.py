@@ -58,7 +58,7 @@ def rebuild(cfg: dict | None = None) -> None:
     cfg = cfg or config.CONFIG
     global _ROLE_RES, ROLE_LABELS, SENIOR_TITLE, NON_IC_TITLE, EXCLUDE_TITLE
     global _COMFORT, _MAX_EXP, TOO_SENIOR_EXP, STRETCH_EXP
-    global ONSITE_CITIES, INDIA_HUBS, _REQUIRE_LOCAL
+    global ONSITE_CITIES, INDIA_HUBS, EXCLUDE_LOCATIONS, _REQUIRE_LOCAL
     global HOME_REGION_RE, GLOBAL_REGION_RE, EXCLUDED_REGION_RE, RESIDENCY_RE
     global _FAV, _FAV_ALIASES, _FAV_ROLE_RES
 
@@ -77,6 +77,7 @@ def rebuild(cfg: dict | None = None) -> None:
 
     ONSITE_CITIES = _kw_alt(cfg["onsite_cities"] or ["__no_city__"])
     INDIA_HUBS = ONSITE_CITIES  # backwards-compatible alias
+    EXCLUDE_LOCATIONS = _kw_alt(cfg.get("exclude_locations") or ["__no_excl__"])
 
     _REQUIRE_LOCAL = bool(cfg["require_local_eligibility"])
     HOME_REGION_RE = _kw_alt(cfg["home_terms"] or ["__none__"])

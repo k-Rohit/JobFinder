@@ -657,7 +657,7 @@ def fetch_favorite_companies() -> list[dict]:
     """DE/AI roles at the user's favourite companies: official ATS boards where
     they exist, plus company-targeted LinkedIn searches per role anchor."""
     out, seen = [], set()
-    for fav in CONFIG.get("favorite_companies", []):
+    for fav in config.CONFIG.get("favorite_companies", []):
         name = fav["name"]
         if fav.get("lever"):
             out.extend(_fetch_lever(fav["lever"], name))
@@ -698,6 +698,46 @@ def fetch_favorite_companies() -> list[dict]:
             except Exception as e:
                 log.warning("LinkedIn favourite %s/%s failed: %s", name, anchor, e)
                 continue
+        out.extend(_jsearch_favorite(name))
+    return out
+
+
+def _jsearch_favorite(name: str) -> list[dict]:
+    """Reliable employer-scoped search via JSearch (if a key is set)."""
+    key = _jsearch_key()
+    if not key:
+        return []
+    try:
+        r = requests.get(
+            "https://jsearch.p.rapidapi.com/search",
+            headers={"X-RapidAPI-Key": key, "X-RapidAPI-Host": "jsearch.p.rapidapi.com"},
+            params={"query": f"{name} data engineer OR data scientist OR machine "
+                             f"learning OR ai engineer in {COUNTRY}",
+                    "page": 1, "num_pages": 1, "date_posted": "month"},
+            timeout=TIMEOUT)
+        r.raise_for_status()
+        data = r.json().get("data") or []
+    except Exception as e:
+        log.warning("JSearch favourite %s failed: %s", name, e)
+        return []
+    out = []
+    for item in data:
+        if not filters.match_favorite(item.get("employer_name") or ""):
+            continue
+        loc = ", ".join(filter(None, [item.get("job_city"), item.get("job_state"),
+                                      item.get("job_country")]))
+        out.append({
+            "source": item.get("employer_name") or name,
+            "favorite": True,
+            "source_id": item.get("job_id") or item.get("job_apply_link", ""),
+            "title": item.get("job_title") or "",
+            "company": item.get("employer_name") or name,
+            "url": item.get("job_apply_link") or "",
+            "location": loc or COUNTRY,
+            "salary": "",
+            "description": (item.get("job_description") or "")[:3000],
+            "posted_at": (item.get("job_posted_at_datetime_utc") or "")[:19],
+        })
     return out
 
 
@@ -726,6 +766,93 @@ def _fetch_greenhouse(token: str, company: str) -> list[dict]:
     return out
 
 
+# ------------------------------------------------- firecrawl (Naukri scrape)
+
+def _firecrawl_key() -> str | None:
+    return os.environ.get("FIRECRAWL_API_KEY") or db.get_meta("firecrawl_key")
+
+
+_FC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "jobs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "company": {"type": "string"},
+                    "location": {"type": "string"},
+                    "url": {"type": "string"},
+                    "experience": {"type": "string"},
+                    "salary": {"type": "string"},
+                    "skills": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
+
+def _firecrawl_scrape(url: str, key: str) -> list[dict]:
+    """Scrape a JS-rendered job board and LLM-extract real listings."""
+    try:
+        r = requests.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "url": url,
+                "formats": ["json"],
+                "waitFor": 9000,
+                "timeout": 45000,
+                "jsonOptions": {
+                    "prompt": "Extract every real job listing shown on this search "
+                              "results page. Only include jobs actually present on the "
+                              "page; never invent placeholder or example data.",
+                    "schema": _FC_SCHEMA,
+                },
+            },
+            timeout=90,
+        )
+        r.raise_for_status()
+        data = (r.json().get("data") or {}).get("json") or {}
+        return data.get("jobs") or []
+    except Exception as e:
+        log.warning("Firecrawl %s failed: %s", url, e)
+        return []
+
+
+def fetch_firecrawl() -> list[dict]:
+    """Scrape Naukri (JS-heavy, blocks normal scrapers) via Firecrawl for each
+    configured role. Skips silently when no FIRECRAWL_API_KEY is set."""
+    key = _firecrawl_key()
+    if not key:
+        return []
+    out = []
+    for role in config.CONFIG["roles"]:
+        slug = role["key"]  # e.g. data-engineer -> naukri /data-engineer-jobs
+        url = f"https://www.naukri.com/{slug}-jobs?experience={config.CONFIG['max_experience_years']}"
+        for item in _firecrawl_scrape(url, key):
+            u = (item.get("url") or "").strip()
+            if not u or "example.com" in u:  # guard against hallucinations
+                continue
+            if u.startswith("/"):
+                u = "https://www.naukri.com" + u
+            out.append({
+                "source": "Naukri",
+                "source_id": u.rstrip("/").rsplit("/", 1)[-1] or u,
+                "title": (item.get("title") or "").strip(),
+                "company": (item.get("company") or "").strip(),
+                "url": u,
+                "location": (item.get("location") or "").strip(),
+                "salary": (item.get("salary") or "").strip(),
+                "description": " ".join(filter(None, [item.get("skills"),
+                                                      item.get("experience")]))[:2000],
+                "posted_at": "",
+            })
+    return out
+
+
 FETCHERS = [
     fetch_remoteok,
     fetch_weworkremotely,
@@ -740,6 +867,7 @@ FETCHERS = [
     fetch_linkedin,
     fetch_jsearch,
     fetch_favorite_companies,
+    fetch_firecrawl,
 ]
 
 
@@ -749,6 +877,9 @@ def normalize(raw: dict) -> dict | None:
     """Apply role/experience filters; return a DB-ready row or None."""
     title = raw["title"].strip()
     if not title or not raw["url"]:
+        return None
+    # user-excluded locations (e.g. a city they never want) are always dropped
+    if filters.EXCLUDE_LOCATIONS.search(raw.get("location") or ""):
         return None
     favorite = bool(raw.get("favorite") or filters.match_favorite(raw["company"]))
     # Freshness applies to the broad boards; favourite companies are tracked

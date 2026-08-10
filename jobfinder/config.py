@@ -72,6 +72,9 @@ DEFAULTS = {
     # Office / hybrid jobs are only kept in these cities (remote can be global).
     "onsite_cities": ["Bangalore", "Bengaluru", "Hyderabad", "Pune"],
 
+    # Drop any job (remote or onsite) whose location mentions one of these.
+    "exclude_locations": [],
+
     # Candidate-eligibility filter for remote roles.
     "require_local_eligibility": True,
     "country": "India",
