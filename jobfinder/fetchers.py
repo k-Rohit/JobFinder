@@ -882,6 +882,10 @@ def normalize(raw: dict) -> dict | None:
     if filters.EXCLUDE_LOCATIONS.search(raw.get("location") or ""):
         return None
     favorite = bool(raw.get("favorite") or filters.match_favorite(raw["company"]))
+    # whitelist Indian cities: a job in an Indian city outside onsite_cities is
+    # dropped even if tagged "remote" (worldwide/generic-India roles are kept).
+    if not favorite and filters.indian_city_not_wanted(raw.get("location") or ""):
+        return None
     # Freshness applies to the broad boards; favourite companies are tracked
     # regardless of how long the posting has been open.
     if raw["posted_at"] and not favorite:
