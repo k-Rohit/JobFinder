@@ -69,8 +69,9 @@ DEFAULTS = {
     "comfortable_years": 1,        # <= this -> "junior"
     "max_experience_years": 3,     # comfortable+1 .. this -> "stretch"; above -> drop
 
-    # Office / hybrid jobs are only kept in these cities (remote can be global).
-    "onsite_cities": ["Bangalore", "Bengaluru", "Hyderabad", "Pune"],
+    # Jobs located in India are kept only in these cities (any work mode);
+    # remote/worldwide roles with no Indian city are unaffected.
+    "onsite_cities": ["Bangalore", "Bengaluru", "Hyderabad", "Pune", "Ahmedabad"],
 
     # Drop any job (remote or onsite) whose location mentions one of these.
     "exclude_locations": [],
