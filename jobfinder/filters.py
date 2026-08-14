@@ -59,6 +59,7 @@ def rebuild(cfg: dict | None = None) -> None:
     global _ROLE_RES, ROLE_LABELS, SENIOR_TITLE, NON_IC_TITLE, EXCLUDE_TITLE
     global _COMFORT, _MAX_EXP, TOO_SENIOR_EXP, STRETCH_EXP
     global ONSITE_CITIES, INDIA_HUBS, EXCLUDE_LOCATIONS, _REQUIRE_LOCAL
+    global _RESTRICT_INDIA_CITIES
     global HOME_REGION_RE, GLOBAL_REGION_RE, EXCLUDED_REGION_RE, RESIDENCY_RE
     global _FAV, _FAV_ALIASES, _FAV_ROLE_RES
 
@@ -78,6 +79,9 @@ def rebuild(cfg: dict | None = None) -> None:
     ONSITE_CITIES = _kw_alt(cfg["onsite_cities"] or ["__no_city__"])
     INDIA_HUBS = ONSITE_CITIES  # backwards-compatible alias
     EXCLUDE_LOCATIONS = _kw_alt(cfg.get("exclude_locations") or ["__no_excl__"])
+    # enforce the city whitelist only for India profiles that named cities
+    _RESTRICT_INDIA_CITIES = (
+        "india" in (cfg.get("country") or "").lower() and bool(cfg["onsite_cities"]))
 
     _REQUIRE_LOCAL = bool(cfg["require_local_eligibility"])
     HOME_REGION_RE = _kw_alt(cfg["home_terms"] or ["__none__"])
@@ -132,6 +136,29 @@ def hiring_region(location: str, description: str = "") -> str:
 
 ONSITE_RE = re.compile(r"\bon[\s-]?site\b|\bin[\s-]?office\b|\boffice[\s-]?based\b", re.I)
 REMOTE_RE = re.compile(r"\bremote\b|\bwork\s+from\s+home\b|\bwfh\b|\bflexible\b|\banywhere\b", re.I)
+
+# Major Indian cities. Used to enforce the onsite_cities whitelist: a job whose
+# location names an Indian city that isn't one of the user's chosen cities is
+# dropped — even if it's tagged "remote" (those are usually that-city roles).
+# A generic "India" location or a foreign/worldwide one is unaffected.
+INDIAN_CITIES = re.compile(
+    r"\b(mumbai|delhi|new\s+delhi|gurgaon|gurugram|noida|greater\s+noida|kolkata|"
+    r"chennai|ahmedabad|bangalore|bengaluru|hyderabad|pune|jaipur|surat|lucknow|"
+    r"kanpur|nagpur|indore|thane|bhopal|visakhapatnam|vizag|patna|vadodara|"
+    r"ghaziabad|coimbatore|kochi|cochin|chandigarh|mohali|mysore|mysuru|"
+    r"trivandrum|thiruvananthapuram|nashik|nasik|faridabad|gandhinagar|"
+    r"bhubaneswar|mangalore|mangaluru|hubli|hubballi|kozhikode|calicut|"
+    r"guwahati|dehradun|raipur|ranchi|jodhpur|udaipur|goa|kolhapur|"
+    r"navi\s+mumbai|whitefield|gurugram\s+division)\b", re.I)
+
+
+def indian_city_not_wanted(location: str) -> bool:
+    """True if the location names an Indian city that isn't in onsite_cities.
+    Only active for India-based profiles with at least one chosen city."""
+    if not _RESTRICT_INDIA_CITIES:
+        return False
+    loc = location or ""
+    return bool(INDIAN_CITIES.search(loc) and not ONSITE_CITIES.search(loc))
 
 # ---------------------------------------------------------------- skills
 SKILLS = {
